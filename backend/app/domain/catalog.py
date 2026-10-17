@@ -37,6 +37,7 @@ class CatalogSource(Protocol):
 
     source_name: str
     source_reference: str | None
+    capture_date: date
 
     def fetch_pets(self) -> "CatalogBatch": ...
 

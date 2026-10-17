@@ -2,8 +2,9 @@
 
 import csv
 import io
+import re
 from collections import Counter
-from datetime import date
+from datetime import date, datetime
 from urllib.parse import urlparse
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
@@ -20,8 +21,10 @@ _REQUIRED_COLUMNS = {
     "sku", "nombre", "especie", "raza", "sexo", "edad_meses", "edad_estimada",
     "tipo_pelaje", "tamano", "tamano_estimado", "nivel_energia", "condicion_especial",
     "condicion_detalle", "descripcion", "orden_publicacion", "estado_publicado",
-    "fecha_publicacion", "url_perfil", "etiquetas", "etiqueta_adoptado",
+    "fecha_publicacion", "url_perfil", "etiquetas",
 }
+_OPTIONAL_COLUMNS = {"etiqueta_adoptado"}  # Compatibilidad temporal con los CSV demo anteriores.
+_CAPTURE_FILENAME = re.compile(r"^captura(?:_demo)?_(\d{4}-\d{2}-\d{2})\.csv$", re.IGNORECASE)
 
 
 class _CsvPet(BaseModel):
@@ -48,7 +51,7 @@ class _CsvPet(BaseModel):
     fecha_publicacion: date
     url_perfil: str = Field(min_length=1, max_length=255)
     etiquetas: str = ""
-    etiqueta_adoptado: bool
+    etiqueta_adoptado: bool | None = None
 
     @field_validator("etiquetas")
     @classmethod
@@ -115,6 +118,18 @@ class CsvCatalogSource:
         safe_name = (filename or "").replace("\\", "/").rsplit("/", maxsplit=1)[-1].strip()
         if not safe_name or len(safe_name) > 255 or not safe_name.casefold().endswith(".csv"):
             raise CatalogSourceError("Selecciona un archivo con extensión .csv y un nombre válido.")
+        match = _CAPTURE_FILENAME.fullmatch(safe_name)
+        if match is None:
+            raise CatalogSourceError(
+                "El nombre del archivo debe seguir el formato captura_AAAA-MM-DD.csv "
+                "(también se acepta captura_demo_AAAA-MM-DD.csv)."
+            )
+        try:
+            self.capture_date = date.fromisoformat(match.group(1))
+        except ValueError as exc:
+            raise CatalogSourceError("La fecha del nombre del CSV no es válida.") from exc
+        if self.capture_date > datetime.now().date():
+            raise CatalogSourceError("La fecha de captura no puede ser futura.")
         if safe_name in used_references:
             raise CatalogAlreadyImported("Este nombre de archivo ya fue importado correctamente.")
         self._max_bytes = settings.catalog_csv_max_bytes
@@ -131,9 +146,13 @@ class CsvCatalogSource:
             rows = list(reader)
         except (UnicodeDecodeError, csv.Error) as exc:
             raise CatalogSourceError("El CSV debe tener encabezados y codificación UTF-8.") from exc
-        if headers != _REQUIRED_COLUMNS or len(header_list) != len(headers):
+        if (
+            not _REQUIRED_COLUMNS.issubset(headers)
+            or headers - _REQUIRED_COLUMNS - _OPTIONAL_COLUMNS
+            or len(header_list) != len(headers)
+        ):
             missing = sorted(_REQUIRED_COLUMNS - headers)
-            extra = sorted(headers - _REQUIRED_COLUMNS)
+            extra = sorted(headers - _REQUIRED_COLUMNS - _OPTIONAL_COLUMNS)
             raise CatalogSourceError(
                 f"Encabezados CSV inválidos; faltan {missing or 'ninguno'}; sobran {extra or 'ninguno'}."
             )
@@ -157,8 +176,8 @@ class CsvCatalogSource:
                     CatalogPet(
                         **profile.model_dump(exclude={"etiquetas", "etiqueta_adoptado"}),
                         etiquetas=labels,
-                        etiqueta_adoptado=profile.etiqueta_adoptado,
-                        origen_etiqueta="sintetica",
+                        etiqueta_adoptado=None,
+                        origen_etiqueta=None,
                     )
                 )
                 counts[profile.estado_publicado] += 1
@@ -190,11 +209,19 @@ class CsvCatalogSource:
         if None in row:
             raise ValueError("la fila tiene más columnas que el encabezado")
         values: dict[str, object] = {key: (value or "").strip() for key, value in row.items()}
-        for name in ("edad_estimada", "tamano_estimado", "condicion_especial", "etiqueta_adoptado"):
+        for name in ("edad_estimada", "tamano_estimado", "condicion_especial"):
             raw = str(values[name]).casefold()
             if raw not in {"true", "false"}:
                 raise ValueError(f"{name} debe ser true o false")
             values[name] = raw == "true"
+        if "etiqueta_adoptado" in values:
+            raw_label = str(values["etiqueta_adoptado"]).casefold()
+            if raw_label == "":
+                values["etiqueta_adoptado"] = None
+            elif raw_label in {"true", "false"}:
+                values["etiqueta_adoptado"] = raw_label == "true"
+            else:
+                raise ValueError("etiqueta_adoptado legado debe ser true o false")
         if values["edad_meses"] == "":
             values["edad_meses"] = None
         for name in ("condicion_detalle", "descripcion"):

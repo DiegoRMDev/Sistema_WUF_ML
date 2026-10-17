@@ -69,17 +69,21 @@ Los sprints son de tres semanas, salvo S4 de cuatro semanas; el plan abarca sema
 
 La historia y RF01 del avance describen recolección automática semanal. Como el proyecto no dispone de acceso a la plataforma WUF, para el alcance implementable de HU01 se acordó simular la fuente mediante archivos CSV y que el Analista inicie cada importación desde la interfaz. Se conservan los atributos requeridos, la trazabilidad temporal y los snapshots de RF01/RF02; la consulta a WUF y la programación automática quedan fuera de esta entrega. Los CSV de demostración y sus etiquetas son sintéticos y no representan datos observados en WUF.
 
-## Trazabilidad pantalla-HU
+## Trazabilidad entre requisitos y prototipo
 
-El prototipo incluye login, dashboard, catálogo, recolección, dataset, entrenamiento, alertas, reporte y configuración. Mantener rutas equivalentes (`#dashboard`, `#catalogo`, `#recoleccion`, `#dataset`, `#entrenamiento`, `#alertas`, `#reporte`, `#configuracion`) al migrar a frontend conectado a API; las rutas son referencias de UI y no autorización.
+El prototipo es la referencia visual y de flujo para las pantallas login, dashboard, catálogo, recolección, dataset, entrenamiento, alertas, reporte y configuración. Al construir cada módulo se conservarán navegación, jerarquía, componentes, términos y estados visuales; sus cifras y registros de muestra no son datos de negocio. Las rutas (`#dashboard`, `#catalogo`, `#recoleccion`, `#dataset`, `#entrenamiento`, `#alertas`, `#reporte`, `#configuracion`) son referencias de interfaz, no controles de autorización.
 
-## Aspectos que requieren decisión funcional
+Para HU02 el prototipo de Dataset Histórico muestra observaciones por semana y una etiqueta final **“Permanece” / “Salió del catálogo”**. Esta vista se toma como guía funcional para comparar snapshots semanales. El RF03 original expresa esa salida con la interpretación “no adoptado/adoptado”; en la implementación debe quedar claro que la salida del catálogo es una etiqueta derivada/proxy, no confirmación de una adopción real.
 
-1. **Etiqueta de adopción:** la fuente CSV de simulación incluye etiquetas sintéticas explícitas para probar HU02/HU03, identificadas como tales y sin crear adopciones. No deben mezclarse con etiquetas verificadas, KPI reales ni activación de modelos operativos. En datos reales, una desaparición también puede ser baja temporal o retiro; debe registrarse como inferida, no como verdad confirmada.
-2. **Identidad:** SKU se define como identificador, pero puede cambiar o reutilizarse. Definir regla de identidad y reconciliación; URL/nombre no son claves confiables.
-3. **OE1/OE3:** el avance no define fórmula, denominador, periodo base ni fuente de adopciones efectivas. Formalizar KPI antes de tratarlos como métricas operativas.
-4. **OE2:** distinguir accuracy del clasificador de riesgo y exactitud observada del catálogo. Definir fuente de “estado real” y matriz de evaluación.
-5. **Umbrales/prioridad:** prototipo sugiere probabilidad de permanencia y bandas alta/media/baja; el RF06 menciona probabilidad de adopción. Definir orientación de la clase positiva y fórmula de prioridad para no invertir el orden.
-6. **Condiciones y edades:** acordar etiquetas canónicas, umbral de “edad avanzada” y manejo de edades estimadas. No inferir umbrales del contenido ilustrativo del prototipo.
-7. **Notificación y atención:** el CU07 habla de envío/reintentos pero no especifica canal; HU07 requiere registrar atención. Determinar canal, deduplicación y estados de resolución.
-8. **PII:** adoptante, email y teléfono aparecen en el diccionario pero los RF/modelos no los necesitan. No recolectar ni persistirlos hasta justificar finalidad, acceso y retención.
+## Decisiones y puntos abiertos
+
+1. **Etiqueta HU02 — criterio de trazabilidad:** HU02 compara snapshots sucesivos como pide RF03 y representa las clases del prototipo (“Permanece” / “Salió del catálogo”). La etiqueta se deriva en HU02; `etiqueta_adoptado` no es requisito de entrada y el importador actual descarta esa columna si un CSV antiguo aún la contiene. La salida del catálogo no demuestra por sí sola adopción: los datasets derivados registrarán política y procedencia de etiqueta, y no se presentarán como verdad verificada.
+2. **Semántica de estados:** siguiendo las filas del prototipo y RF03, el estado final `disponible` se etiqueta `Permanece`; `no_disponible` se etiqueta `Salió del catálogo` como proxy. Un perfil ausente en una captura completa también puede representar salida; `sin_publicar`, capturas parciales o evidencia insuficiente se marcan indeterminadas. La etiqueta proxy no demuestra adopción.
+3. **Fechas y semanas:** la fecha de captura corresponde al periodo representado por el CSV y se lee del patrón validado del nombre (`captura_AAAA-MM-DD.csv` o `captura_demo_AAAA-MM-DD.csv`). La semana mostrada se deriva con calendario ISO; inicio/fin de ejecución conservan el momento de importación. No se usa la hora de importación para simular semanas históricas.
+4. **Identidad:** SKU identifica el mismo perfil a través de capturas y debe mantenerse estable en los CSV. Su reutilización para otra mascota invalida la comparación temporal.
+5. **OE1/OE3:** el avance no define fórmula, denominador, periodo base ni fuente de adopciones efectivas. Formalizar KPI antes de tratarlos como métricas operativas. Una etiqueta proxy de salida del catálogo no es una tasa verificada de adopción.
+6. **OE2:** distinguir accuracy del clasificador de riesgo y exactitud observada del catálogo. Definir fuente de “estado real” y matriz de evaluación.
+7. **Probabilidad/prioridad:** el prototipo muestra probabilidad de permanencia y prioridades alta/media/baja; RF06 menciona probabilidad de adopción. Definir la clase positiva, horizonte y regla de prioridad; una probabilidad menor de adopción debe aumentar la prioridad de difusión.
+8. **Condiciones y edades:** acordar etiquetas canónicas, umbral de “edad avanzada” y manejo de edades estimadas. No inferir umbrales del contenido ilustrativo del prototipo.
+9. **Notificación y atención:** el CU07 habla de envío/reintentos pero no especifica canal; HU07 requiere registrar atención. Determinar canal, deduplicación y estados de resolución.
+10. **PII:** adoptante, email y teléfono aparecen en el diccionario pero los RF/modelos no los necesitan. No recolectar ni persistirlos hasta justificar finalidad, acceso y retención.

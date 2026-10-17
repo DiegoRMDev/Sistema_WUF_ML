@@ -7,11 +7,7 @@ from sqlalchemy import create_engine, text
 from app.core.config import get_settings
 from app.core.security import hash_password
 
-ROLE_NAMES = {
-    "analista": "Analista de Datos",
-    "marketing": "Marketing",
-    "ayuda": "Área de Ayuda",
-}
+ALLOWED_ROLES = {"analista", "marketing", "ayuda"}
 
 
 def main() -> None:
@@ -21,7 +17,7 @@ def main() -> None:
     role = input("Rol (analista/marketing/ayuda): ").strip().casefold()
     password = getpass("Contraseña (mínimo 12 caracteres): ")
     confirmation = getpass("Repite la contraseña: ")
-    if not name or not email or role not in ROLE_NAMES:
+    if not name or not email or role not in ALLOWED_ROLES:
         raise SystemExit("Nombre, correo o rol inválido.")
     if len(password) < 12 or password != confirmation:
         raise SystemExit("La contraseña debe tener 12 caracteres y ambas entradas deben coincidir.")
@@ -42,7 +38,8 @@ def main() -> None:
                 """),
                 {
                     "name": name,
-                    "role": ROLE_NAMES[role],
+                    # Guarda el código estable del rol; la interfaz presenta su nombre traducido.
+                    "role": role,
                     "email": email,
                     "password_hash": hash_password(password),
                 },

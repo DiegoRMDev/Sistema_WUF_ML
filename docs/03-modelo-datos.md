@@ -1,8 +1,10 @@
 # Modelo físico y diccionario de datos
 
-Este documento conserva el diccionario del modelo físico del avance y registra las extensiones mínimas para HU01. [`../backend/schema.sql`](../backend/schema.sql) sirve para instalaciones nuevas; los archivos `upgrade_*.sql` actualizan bases ya creadas sin eliminar sus registros.
+Este documento conserva el diccionario físico del avance y diferencia el esquema actualmente usado del diseño v2 para HU02. [`../backend/schema.sql`](../backend/schema.sql) corresponde a la base anterior; [`../backend/schema_wuf_predict_v2.sql`](../backend/schema_wuf_predict_v2.sql) crea el esquema objetivo en una base vacía `wuf_predict_v2`. El SQL v2 no migra ni elimina datos de `wuf_predict`.
 
-## Diccionario de datos
+## Diccionario de datos del esquema anterior
+
+Las tablas siguientes documentan el diccionario del avance y las extensiones HU01 actualmente usadas por `backend/schema.sql`. Más abajo se describen explícitamente las diferencias del esquema v2 para que no se confundan ambos contratos.
 
 En la columna **Restricción** se conserva `PK`, `FK`, `NOT NULL` y `NULL` según el diccionario. En PostgreSQL, `SERIAL` genera una secuencia para el identificador; `PRIMARY KEY` implica `NOT NULL`.
 
@@ -66,8 +68,8 @@ En la columna **Restricción** se conserva `PK`, `FK`, `NOT NULL` y `NULL` segú
 | id_mascota | INTEGER | FK → mascota, NOT NULL |
 | id_dataset | INTEGER | FK → dataset_historico, NULL |
 | id_ejecucion | INTEGER | FK → ejecucion_recoleccion, NOT NULL en instalación nueva |
-| semana | INTEGER | NOT NULL |
-| fecha_captura | TIMESTAMP | NOT NULL |
+| semana | INTEGER | NOT NULL; semana ISO de la fecha representada por la captura |
+| fecha_captura | TIMESTAMP | NOT NULL; instante/fecha de los datos capturados, no el de importación |
 | sku | VARCHAR(10) | NOT NULL |
 | nombre | VARCHAR(80) | NOT NULL |
 | especie | VARCHAR(10) | NOT NULL |
@@ -86,8 +88,8 @@ En la columna **Restricción** se conserva `PK`, `FK`, `NOT NULL` y `NULL` segú
 | estado_detectado | VARCHAR(20) | NOT NULL |
 | fecha_publicacion | DATE | NOT NULL |
 | url_perfil | VARCHAR(255) | NOT NULL |
-| etiqueta_adoptado | BOOLEAN | NULL o etiqueta sintética explícita de la captura |
-| origen_etiqueta | VARCHAR(20) | NULL; `sintetica`, `verificada`, `inferida` o `desconocida` |
+| etiqueta_adoptado | BOOLEAN | NULL; campo heredado opcional, no se persiste desde CSV ni se usa como clase HU02 |
+| origen_etiqueta | VARCHAR(20) | NULL; campo heredado, permanece NULL en las capturas actuales |
 
 ### snapshot_etiqueta_condicion (extensión HU01)
 
@@ -154,7 +156,7 @@ Registra las ejecuciones manuales por CSV y los contadores mostrados en la panta
 | referencia_fuente | VARCHAR(255) | NULL; nombre del CSV procesado |
 | fecha_inicio | TIMESTAMP | NOT NULL |
 | fecha_fin | TIMESTAMP | NULL |
-| semana | INTEGER | NOT NULL |
+| semana | INTEGER | NOT NULL; semana ISO de la captura importada |
 | perfiles_total | INTEGER | NOT NULL, DEFAULT 0 |
 | perfiles_disponibles | INTEGER | NOT NULL, DEFAULT 0 |
 | perfiles_no_disponibles | INTEGER | NOT NULL, DEFAULT 0 |
@@ -208,19 +210,49 @@ El SQL crea primero las tablas referenciadas y luego sus dependientes: usuario y
 El esquema se ajusta al diccionario; estos puntos describen capacidades que el diccionario no modela y no se han resuelto añadiendo campos:
 
 1. **Snapshots anteriores:** las migraciones dejan nullable las columnas nuevas para conservar filas ya creadas. No las rellenan con los valores actuales de `mascota`, porque eso falsearía el historial.
-2. **Etiqueta de adopción:** el CSV entrega explícitamente `true`/`false` sintético; HU01 lo guarda con `origen_etiqueta='sintetica'`. No es evidencia de adopción real ni crea filas en `adopcion`. HU02 debe copiar la procedencia a `dataset_historico.origen_etiquetas`; HU03 limita datasets sintéticos a experimentos y requiere `verificada` para activación operativa.
+2. **Etiqueta HU02:** el importador no requiere ni persiste `etiqueta_adoptado`; si un archivo legado contiene la columna, se valida y se descarta. HU02 compara snapshots para generar “Permanece / Salió del catálogo”. Una salida inferida no confirma adopción real, no crea filas en `adopcion` y no debe presentarse como KPI real.
+3. **Fecha de captura y calendario:** HU01 valida la fecha del nombre `captura_AAAA-MM-DD.csv` o `captura_demo_AAAA-MM-DD.csv`, deriva la semana ISO y la separa del instante real de importación (`fecha_inicio`/`fecha_fin`).
+4. **Calidad de CSV:** se validan encabezados exactos, codificación UTF-8, tamaño, dominios, tipos y SKU duplicados. Los perfiles inválidos se rechazan con un resumen; no se generan valores para completar campos obligatorios.
+5. **Vinculación snapshot-dataset:** cada snapshot tiene como máximo un `id_dataset` en esta estructura, que además puede ser nulo. Si HU02 conserva capturas fuente y genera distintas versiones de dataset a partir de ellas, el modelo actual no representa bien una relación muchos-a-muchos. Para una base objetivo considerar una tabla de asociación `dataset_snapshot` o registrar el rango/manifiesto inmutable de snapshots usado por cada dataset.
+6. **Seguimiento de alertas:** la tabla guarda fecha, riesgo, mensaje y estado, pero no registra quién atendió la alerta, cuándo ni una nota de resolución. El flujo de HU07 quedaría limitado a cambiar `estado` salvo que se revise el diccionario.
+7. **Control de unicidad y dominios:** el diccionario no enumera dominios para estado, sexo, rol, formato y prioridad. La aplicación debe validar esos valores; los `CHECK` añadidos se limitan a rangos numéricos, fechas, estado/origen de las ejecuciones y completitud de snapshots nuevos.
+8. **Identidad/idempotencia:** `UNIQUE (sku)` identifica una mascota entre ejecuciones y `UNIQUE (id_ejecucion, id_mascota)` impide duplicarla dentro de una captura. Los CSV deben conservar el SKU para el mismo animal y no reutilizarlo para otro. Cada nombre de archivo se consume una vez. La migración CSV crea el índice único; si hay SKU duplicados existentes, hay que resolverlos antes.
+9. **Ejecuciones de recolección:** HU01 puede registrar tipo, inicio/fin, semana, conteos, estado, error y usuario iniciador. “Vigente” se deriva de la última ejecución completada, no se almacena como estado.
+10. **Importación CSV:** el Analista selecciona cada archivo y lo envía manualmente. Un archivo exitoso o parcial no se puede repetir con el mismo nombre; uno fallido se puede corregir y reintentar.
+11. **Artefactos y parámetros ML:** `modelo_predictivo` registra algoritmo, versión, métricas y fecha, pero no ubicación del archivo entrenado, parámetros, semilla, partición ni cuál modelo está activo.
+12. **Datos personales:** `adoptante` contiene nombre, email y teléfono. El acceso debe limitarse y estos datos no deben incluirse como variables del modelo.
 
-3. **Calidad de CSV:** se validan encabezados exactos, codificación UTF-8, tamaño, dominios, tipos y SKU duplicados. Los perfiles inválidos se rechazan con un resumen; no se generan valores para completar campos obligatorios.
-4. **Vinculación snapshot-dataset:** cada snapshot tiene como máximo un `id_dataset` en esta estructura, que además puede ser nulo. Si se necesita reutilizar una captura en varias versiones de dataset, el modelo actual no representa esa relación.
-5. **Seguimiento de alertas:** la tabla guarda fecha, riesgo, mensaje y estado, pero no registra quién atendió la alerta, cuándo ni una nota de resolución. El flujo de HU07 quedaría limitado a cambiar `estado` salvo que se revise el diccionario.
-6. **Control de unicidad y dominios:** el diccionario no enumera dominios para estado, sexo, rol, formato y prioridad. La aplicación debe validar esos valores; los `CHECK` añadidos se limitan a rangos numéricos, fechas, estado/origen de las ejecuciones y completitud de snapshots nuevos.
-7. **Identidad/idempotencia:** `UNIQUE (sku)` identifica una mascota entre ejecuciones y `UNIQUE (id_ejecucion, id_mascota)` impide duplicarla dentro de una captura. Los CSV deben conservar el SKU para el mismo animal y no reutilizarlo para otro. Cada nombre de archivo se consume una vez. La migración CSV crea el índice único; si hay SKU duplicados existentes, hay que resolverlos antes.
-8. **Ejecuciones de recolección:** HU01 puede registrar tipo, inicio/fin, semana, conteos, estado, error y usuario iniciador. “Vigente” se deriva de la última ejecución completada, no se almacena como estado.
-9. **Importación CSV:** el Analista selecciona cada archivo y lo envía manualmente. Un archivo exitoso o parcial no se puede repetir con el mismo nombre; uno fallido se puede corregir y reintentar.
-10. **Artefactos y parámetros ML:** `modelo_predictivo` registra algoritmo, versión, métricas y fecha, pero no ubicación del archivo entrenado, parámetros, semilla, partición ni cuál modelo está activo.
-11. **Datos personales:** `adoptante` contiene nombre, email y teléfono. El acceso debe limitarse y estos datos no deben incluirse como variables del modelo.
+El archivo `schema.sql` crea el modelo físico documentado y las extensiones de HU01 para una instalación nueva del esquema anterior. No incluye datos semilla ni capturas CSV.
 
-El archivo `schema.sql` crea el modelo físico documentado y las extensiones de HU01 para una instalación nueva. No incluye datos semilla ni capturas CSV.
+## Esquema v2 para HU02 y el prototipo
+
+La base nueva `wuf_predict_v2` parte del diccionario original y acomoda las extensiones necesarias para cumplir RF03 y la vista del prototipo. El SQL completo está en [`../backend/schema_wuf_predict_v2.sql`](../backend/schema_wuf_predict_v2.sql). La base `wuf_predict` y su `schema.sql` se conservan sin cambios.
+
+Cambios del diseño v2:
+
+- `ejecucion_recoleccion.fecha_captura` identifica la fecha representada por el CSV; `fecha_inicio` y `fecha_fin` registran cuándo se procesó. `semana` debe coincidir con la semana ISO de `fecha_captura`. La misma fecha/semana se copia al snapshot y el importer valida el nombre del archivo antes de crear la ejecución.
+- `snapshot_catalogo.etiqueta_adoptado` se conserva nullable por trazabilidad con el diccionario original, pero no se exige en el CSV ni es la etiqueta objetivo de HU02. HU02 deriva `permanece`, `salio_catalogo` o `indeterminada` a partir de los estados de snapshots sucesivos.
+- `snapshot_catalogo.id_dataset` del esquema anterior se sustituye en v2 por `dataset_snapshot`, que hace explícito que varias versiones de dataset pueden reutilizar snapshots y que cada dataset puede agrupar muchas observaciones.
+- `dataset_ejecucion` registra las ejecuciones fuente de cada dataset, incluso capturas completas donde una mascota está ausente.
+- `dataset_detalle` mantiene una fila por mascota y dataset, vincula snapshots de referencia/resultado y guarda la etiqueta derivada. La clase `salio_catalogo` puede tener snapshot final con estado `no_disponible`, como muestra el prototipo, o no tener snapshot si la mascota falta en una captura completa; en ambos casos se registra la ejecución de resultado. Si no hay evidencia suficiente, la clase es `indeterminada`.
+- `dataset_historico` registra rango temporal, versión de regla, procedencia y hash opcional del CSV generado. Los datasets derivados del catálogo se marcan `derivada_catalogo`; esto no significa adopción verificada.
+
+### Regla funcional propuesta a partir del avance original
+
+Una captura CSV debe representar un catálogo completo y una ejecución completada. La regla alineada al prototipo asigna `permanece` si el estado final es `disponible`; asigna `salio_catalogo` si el estado final es `no_disponible` o si el perfil falta en una captura completa posterior. RF03 interpreta la salida como proxy de “adoptada”, pero no se confirma una adopción real. `sin_publicar`, capturas parciales, periodo sin captura posterior o evidencia incompleta producen `indeterminada`. La versión de la regla debe persistirse con el dataset.
+
+La UI del prototipo muestra semanas 6, 7 y 8 como contenido ilustrativo. En los CSV demo fechados 28-sep, 05-oct y 12-oct de 2026, el calendario ISO corresponde a semanas 40, 41 y 42. Se conservará la vista semanal, pero los datos funcionales mostrarán su semana calendario ISO, no copiarán los números estáticos del prototipo.
+
+### Crear `wuf_predict_v2` en pgAdmin
+
+1. En pgAdmin, conéctate al mismo servidor PostgreSQL 16 que usa el proyecto.
+2. En **Databases**, crea la base `wuf_predict_v2` con propietario igual al usuario configurado para la aplicación (o al propietario local usado en `wuf_predict`). No borres `wuf_predict`.
+3. Selecciona `wuf_predict_v2`, abre **Query Tool**, carga [`../backend/schema_wuf_predict_v2.sql`](../backend/schema_wuf_predict_v2.sql) y ejecútalo una sola vez.
+4. Comprueba que se crearon las tablas y restricciones sin error. El script usa transacción y no contiene `DROP DATABASE` ni elimina otra base.
+5. Si ejecutaste el primer SQL v2 antes de esta actualización, aplica una sola vez [`../backend/upgrade_wuf_predict_v2_dataset.sql`](../backend/upgrade_wuf_predict_v2_dataset.sql) en `wuf_predict_v2`. Esta agrega el registro de ejecuciones fuente y permite que “Salió” tenga snapshot final `no_disponible` conforme al prototipo.
+6. El backend HU01 ahora acepta ambos esquemas, calcula semana ISO desde el nombre del archivo, no persiste la etiqueta sintética y valida la relación mascota/SKU/snapshot/ejecución antes de confirmar. Cambia `DATABASE_URL` local para apuntar a `wuf_predict_v2` y reinicia la API solo cuando la base y el usuario estén preparados. No publiques el `.env`.
+
+La aplicación del SQL y de la migración se ejecuta por separado en pgAdmin; este trabajo no modificó tu PostgreSQL ni sustituye un respaldo de `wuf_predict`.
 
 ## Actualizar una base ya creada
 

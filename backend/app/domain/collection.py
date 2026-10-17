@@ -1,6 +1,6 @@
 """Puerto de persistencia para el caso de uso de captura."""
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Protocol
 
 from app.domain.catalog import CatalogPet
@@ -11,6 +11,7 @@ class CollectionRepositoryPort(Protocol):
         self,
         actor_id: int | None,
         started_at: datetime,
+        capture_date: date,
         week: int,
         execution_type: str,
         source_name: str,

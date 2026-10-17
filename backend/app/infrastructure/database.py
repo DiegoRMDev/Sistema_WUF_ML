@@ -22,28 +22,33 @@ def get_db() -> Generator[Session, None, None]:
 
 
 def verify_hu01_schema() -> None:
-    """Falla al iniciar si faltan columnas requeridas por las capturas HU01."""
+    """Acepta el esquema HU01 anterior o v2 y rechaza esquemas incompletos."""
     with engine.connect() as connection:
         rows = connection.execute(text("""
             SELECT table_name, column_name, is_nullable
             FROM information_schema.columns
             WHERE table_schema = current_schema()
-              AND (
-                  (table_name = 'snapshot_catalogo' AND column_name IN ('etiqueta_adoptado', 'origen_etiqueta'))
-                  OR (table_name = 'ejecucion_recoleccion'
-                      AND column_name IN ('fuente_datos', 'referencia_fuente'))
-                  OR (table_name = 'dataset_historico' AND column_name = 'origen_etiquetas')
-              )
         """)).mappings().all()
     columns = {(row["table_name"], row["column_name"]): row["is_nullable"] for row in rows}
-    if (
+    common_schema_is_valid = not (
         columns.get(("snapshot_catalogo", "etiqueta_adoptado")) != "YES"
         or columns.get(("snapshot_catalogo", "origen_etiqueta")) != "YES"
         or columns.get(("ejecucion_recoleccion", "fuente_datos")) != "NO"
         or columns.get(("ejecucion_recoleccion", "referencia_fuente")) != "YES"
         or columns.get(("dataset_historico", "origen_etiquetas")) != "NO"
-    ):
+    )
+    v2_schema = ("ejecucion_recoleccion", "fecha_captura") in columns
+    if v2_schema:
+        v2_schema_is_valid = not (
+            columns.get(("ejecucion_recoleccion", "fecha_captura")) != "NO"
+            or columns.get(("snapshot_catalogo", "id_ejecucion")) != "NO"
+            or columns.get(("dataset_snapshot", "id_snapshot")) != "NO"
+            or columns.get(("dataset_detalle", "etiqueta_catalogo")) != "NO"
+        )
+    else:
+        v2_schema_is_valid = ("snapshot_catalogo", "id_dataset") in columns
+    if not common_schema_is_valid or not v2_schema_is_valid:
         raise RuntimeError(
-            "La base no tiene lista HU01 CSV: aplique las migraciones HU01 anteriores y "
-            "backend/upgrade_hu01_csv.sql."
+            "El esquema PostgreSQL no corresponde a HU01 anterior ni a HU01 v2. "
+            "Verifica que ejecutaste el SQL correspondiente a la base configurada."
         )

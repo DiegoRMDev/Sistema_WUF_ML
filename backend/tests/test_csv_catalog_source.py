@@ -12,7 +12,7 @@ HEADERS = [
     "sku", "nombre", "especie", "raza", "sexo", "edad_meses", "edad_estimada",
     "tipo_pelaje", "tamano", "tamano_estimado", "nivel_energia", "condicion_especial",
     "condicion_detalle", "descripcion", "orden_publicacion", "estado_publicado",
-    "fecha_publicacion", "url_perfil", "etiquetas", "etiqueta_adoptado",
+    "fecha_publicacion", "url_perfil", "etiquetas",
 ]
 
 
@@ -24,7 +24,7 @@ def make_row(**overrides: str) -> dict[str, str]:
         "condicion_especial": "false", "condicion_detalle": "", "descripcion": "",
         "orden_publicacion": "1", "estado_publicado": "disponible",
         "fecha_publicacion": "2026-10-01", "url_perfil": "https://wuf.pe/perfil/DOG-0001",
-        "etiquetas": "", "etiqueta_adoptado": "false",
+        "etiquetas": "",
     }
     row.update(overrides)
     return row
@@ -46,7 +46,7 @@ class CsvCatalogSourceTests(unittest.TestCase):
         )
 
     def source(self, *rows: dict[str, str]) -> CsvCatalogSource:
-        return CsvCatalogSource(self.settings, "captura.csv", encode_rows(*rows), set())
+        return CsvCatalogSource(self.settings, "captura_2026-10-12.csv", encode_rows(*rows), set())
 
     def test_counts_a_valid_profile_and_one_rejected_row_with_multiple_invalid_fields(self) -> None:
         source = self.source(
@@ -81,7 +81,9 @@ class CsvCatalogSourceTests(unittest.TestCase):
 
     def test_rejects_a_filename_already_imported(self) -> None:
         with self.assertRaises(CatalogAlreadyImported):
-            CsvCatalogSource(self.settings, "captura.csv", encode_rows(make_row()), {"captura.csv"})
+            CsvCatalogSource(
+                self.settings, "captura_2026-10-12.csv", encode_rows(make_row()), {"captura_2026-10-12.csv"}
+            )
 
     def test_rejects_a_csv_without_valid_profiles(self) -> None:
         source = self.source(make_row(sexo="X", edad_meses="-1"))

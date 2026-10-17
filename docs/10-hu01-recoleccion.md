@@ -12,7 +12,7 @@ No se consulta WUF ni se usa `mascota` como origen. `data/capturas/` sirve para 
 
 ## Estado verificado
 
-El usuario confirmó dos importaciones completadas desde la interfaz, cada una con 60 perfiles guardados y ninguno rechazado. El historial reportó 49 disponibles, 4 no disponibles y 7 sin publicar en una ejecución; en la otra, 43 disponibles, 13 no disponibles y 4 sin publicar. Esta revisión añadió pruebas unitarias para conteo de perfiles válidos, conteo correcto de una fila con varios errores y duplicados de SKU dentro del archivo. La fuente continúa siendo una simulación CSV, sin extracción real ni programación semanal. El reintento desde UI y el acceso negado a otros roles siguen requiriendo confirmación manual.
+El usuario confirmó tres importaciones completadas desde la interfaz, cada una con 180 perfiles guardados y ninguno rechazado. El historial mostró las semanas ISO 40, 41 y 42 (28/09/26, 05/10/26 y 12/10/26), con 108 disponibles, 72 no disponibles y 0 sin publicar en cada captura. Esto confirma el recorrido feliz de selección, envío y consulta del historial. Las pruebas unitarias cubren perfiles válidos, campos inválidos, SKU duplicados, CSV sin perfiles válidos y nombre ya importado. La fuente continúa siendo una simulación CSV, sin extracción real ni programación semanal. El reintento de una captura fallida y el acceso denegado a otros roles aún requieren confirmación manual.
 
 ## Cómo se procesan varias capturas
 
@@ -21,15 +21,17 @@ El usuario confirmó dos importaciones completadas desde la interfaz, cada una c
 3. El backend valida extensión, tamaño, UTF-8, encabezados, tipos, longitudes, dominios y SKU duplicados.
 4. Registra `fuente_datos='csv_simulada'` y el nombre en `referencia_fuente`. Un CSV procesado correctamente no se puede importar de nuevo con el mismo nombre; uno fallido se puede corregir y reintentar.
 5. Reconcilia cada fila con `mascota` por `sku`: actualiza la fila vigente si existe o crea la mascota si es nueva.
-6. Inserta un snapshot por mascota y ejecución. El snapshot guarda la etiqueta sintética explícita y `origen_etiqueta='sintetica'`.
+6. Inserta un snapshot por mascota y ejecución, con atributos, estado y etiquetas de condición. La etiqueta sintética heredada del CSV se ignora y las columnas `etiqueta_adoptado`/`origen_etiqueta` quedan NULL.
 
-Mantén el SKU para identificar el mismo animal en todos los archivos. Cada CSV debe ser una captura completa fechada por su nombre. El Analista elige cada archivo a importar; no existe selección automática por carpeta ni orden alfabético.
+Mantén el SKU para identificar el mismo animal en todos los archivos. Cada CSV debe representar una captura completa y llevar una fecha válida en el nombre: `captura_AAAA-MM-DD.csv` o `captura_demo_AAAA-MM-DD.csv`. El backend deriva la semana ISO de esa fecha y registra aparte la hora real de importación. El Analista elige cada archivo; no hay selección automática por carpeta ni orden alfabético.
 
 ## Formato de los archivos
 
-La carpeta predeterminada es `data/capturas/`; ahí se encuentra su README con la lista de encabezados y reglas de formato. Los nombres sugeridos son `captura_2026-10-01.csv`, `captura_2026-10-08.csv`, etc. Los CSV locales se excluyen de Git.
+La carpeta predeterminada es `data/capturas/`; su README documenta encabezados y reglas. Cada nombre debe incluir fecha ISO, por ejemplo `captura_2026-10-01.csv`. Los CSV demo están en Git; no subas archivos con datos personales reales.
 
-`etiqueta_adoptado` es obligatoria y acepta `true` o `false`. El sistema la persiste solo en `snapshot_catalogo`, junto a la procedencia sintética. **No** crea filas en `adopcion`, no confirma hechos reales y no se debe usar como KPI real. HU02 debe copiar la procedencia al CSV de dataset; HU03 debe marcar el entrenamiento sintético como experimental y bloquear su activación operativa.
+`etiqueta_adoptado` ya no es obligatorio. Si se recibe en un CSV antiguo, el backend lo valida por compatibilidad pero no lo persiste ni lo usa para HU02. Los snapshots conservan `etiqueta_adoptado=NULL` y `origen_etiqueta=NULL`.
+
+**Etiqueta según el prototipo/RF03:** el estado final `disponible` produce “Permanece”; `no_disponible` produce “Salió del catálogo” como proxy de RF03. Una ausencia en una captura completa también puede representar salida; `sin_publicar` y capturas parciales quedan indeterminadas. Ninguna de estas etiquetas crea filas en `adopcion` ni confirma adopción real.
 
 ## Contrato HTTP
 
@@ -45,6 +47,10 @@ La API usa prefijo `/api/v1`. Login no requiere token; las demás rutas HU01 req
 | `GET /healthz` | Disponibilidad básica de API; no revela configuración |
 
 Estados de ejecución: `en_proceso`, `completada`, `parcial` y `fallida`. Los errores de formato se resumen sin exponer rutas locales ni detalles internos.
+
+## Base `wuf_predict_v2`
+
+El backend ahora reconoce el esquema HU01 anterior y el esquema v2. Si ya ejecutaste el esquema v2 previo a esta actualización, aplica una sola vez [`../backend/upgrade_wuf_predict_v2_dataset.sql`](../backend/upgrade_wuf_predict_v2_dataset.sql) antes de construir datasets; no lo ejecutes sobre `wuf_predict`. La guía del esquema está en [`03-modelo-datos.md`](03-modelo-datos.md). La aplicación lee `DATABASE_URL` desde `backend/.env`; cambia solo el nombre de la base a `wuf_predict_v2` cuando decidas usarla y vuelve a crear el usuario de aplicación en esa base vacía.
 
 ## Migración de base existente
 
@@ -97,11 +103,15 @@ La API recibe el archivo seleccionado en cada solicitud. Si supera el tamaño m�
 - El Analista selecciona el archivo; su nombre se guarda para auditoría y nunca se interpreta como una ruta del servidor.
 - Los archivos se limitan por tamaño y deben usar UTF-8. Los encabezados deben coincidir exactamente con el contrato.
 - Se rechazan filas incompletas o con valores desconocidos; no se inventan atributos. SKU duplicados del mismo CSV quedan rechazados.
-- SKU identifica mascotas entre capturas; `UNIQUE (id_ejecucion, id_mascota)` evita repetición dentro de una ejecución.
-- La etiqueta sintética se guarda con su procedencia y no se inserta en `adopcion`.
+- SKU identifica mascotas entre capturas. El backend valida tras persistir que `snapshot.sku` coincide con `mascota.sku`, y que la fecha/semana del snapshot corresponde a la ejecución.
+- `etiqueta_adoptado` no es obligatoria: si un CSV legado la incluye, el backend la valida y descarta; los snapshots nuevos guardan ambos campos de etiqueta heredada como NULL. HU02 derivará su etiqueta comparando snapshots.
 - Se usan consultas SQL parametrizadas, autenticación JWT, autorización por rol, CORS por allowlist y contraseñas Argon2.
 - El nombre del CSV queda en la auditoría de ejecución, pero no se devuelve una ruta local del servidor.
 
 ## Límites conocidos
 
-La simulación depende de la calidad de los CSV preparados. Las etiquetas sintéticas sirven para verificar construcción de dataset y entrenamiento, no para afirmar precisión de adopciones reales. Si solo se cambia la etiqueta sin crear suficientes ejemplos independientes, las métricas no son evidencia de desempeño. Para entrenamiento se debe agrupar la partición por mascota y separar cualquier dataset sintético de modelos operativos.
+La simulación depende de la calidad y completitud de los CSV. Los tres demo contienen 180 perfiles por semana y estados inspirados en el prototipo; las semanas ISO son 40, 41 y 42 de 2026. En estos archivos el estado de cada SKU es igual entre semanas, por lo que todavía no hay transiciones temporales observadas; HU02 podrá mostrar estados y derivar clases, pero estos demos no prueban cambios históricos variados. `no_disponible` se usa como proxy para la etiqueta “Salió del catálogo”, no como adopción verificada. Para entrenamiento se debe particionar por SKU o por tiempo para evitar fuga entre snapshots de la misma mascota.
+
+## Pendiente para el cierre operativo
+
+La interfaz ya confirmó tres ejecuciones completadas. Aún falta probar desde la aplicación una importación fallida y luego corregida con el mismo nombre, y confirmar que un usuario de otro rol recibe HTTP 403 al consultar o ejecutar HU01. Como la base v2 estaba limpia, la auditoría esperada en PostgreSQL es de 3 ejecuciones completadas, 180 mascotas y 540 snapshots; no se consultaron directamente esas filas en esta revisión.

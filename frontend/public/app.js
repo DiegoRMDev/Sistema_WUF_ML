@@ -123,6 +123,16 @@ function formatDate(value) {
   }).format(parsed);
 }
 
+function formatCaptureDate(value) {
+  if (!value) return "—";
+  // Las fechas de captura son calendarios (sin hora); UTC evita desplazarlas al día anterior en Lima.
+  const parsed = new Date(`${value}T00:00:00Z`);
+  if (Number.isNaN(parsed.getTime())) return "—";
+  return new Intl.DateTimeFormat("es-PE", {
+    dateStyle: "short", timeZone: "UTC",
+  }).format(parsed);
+}
+
 function statusPresentation(status) {
   const values = {
     completada: ["Completada", "alta"],
@@ -168,7 +178,7 @@ async function loadCollection() {
 function renderCollectionOverview(overview) {
   const latest = overview.ultima_captura;
   $("collectionLatest").textContent = latest
-    ? `${formatDate(latest.fecha_inicio)} · semana ${latest.semana} · ${latest.perfiles_total} perfiles`
+    ? `${formatCaptureDate(latest.fecha_captura)} · semana ${latest.semana} · ${latest.perfiles_total} perfiles`
     : "Todavía no hay capturas completadas.";
   const status = $("collectionLatestStatus");
   status.replaceWith(makeStatusTag(latest?.estado || "Sin datos"));
@@ -185,7 +195,7 @@ function renderCollectionRuns(runs) {
   }
   runs.forEach((run) => {
     const row = document.createElement("tr");
-    [run.semana, formatDate(run.fecha_inicio), run.perfiles_total, run.perfiles_disponibles,
+    [run.semana, formatCaptureDate(run.fecha_captura), run.perfiles_total, run.perfiles_disponibles,
       run.perfiles_no_disponibles, run.perfiles_sin_publicar].forEach((value) => {
       const cell = document.createElement("td");
       cell.textContent = String(value ?? "—");

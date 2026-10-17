@@ -7,7 +7,7 @@ Esta guía permite que otra persona prepare el entorno local y ejecute el backen
 - Windows y PowerShell.
 - Python 3.12 o 3.13. Comprueba las versiones disponibles con `py --list`.
 - PostgreSQL 16 instalado y en ejecución.
-- Una base de datos llamada `wuf_predict` y un usuario PostgreSQL con permisos sobre ella.
+- Para la configuración nueva: una base `wuf_predict_v2` y un usuario PostgreSQL con permisos sobre ella. La base antigua `wuf_predict` puede conservarse como respaldo.
 - Git, si se descargó el proyecto desde GitHub.
 
 > Los comandos no requieren instalar herramientas pagadas. Las dependencias de Python se declaran en `backend/pyproject.toml`.
@@ -46,18 +46,17 @@ psql -h localhost -U postgres -d wuf_predict -v ON_ERROR_STOP=1 -f .\upgrade_hu0
 
 Esta migración elimina ejecuciones sin snapshots (por ejemplo, intentos fallidos vacíos), conserva ejecuciones con capturas y agrega el nombre del archivo y la procedencia de etiquetas. No ejecutes `schema.sql` sobre una base existente.
 
-### Base nueva
+### Base nueva v2
 
-Para una instalación completamente nueva, abre PowerShell desde `backend/`, crea la base y carga el esquema:
+Crea `wuf_predict_v2` desde pgAdmin, selecciona UTF8 y ejecuta una sola vez `backend/schema_wuf_predict_v2.sql` en su Query Tool. El esquema está pensado para una base vacía; no ejecutes las migraciones HU01 antiguas ni borres `wuf_predict`.
 
-```powershell
-createdb -h localhost -U postgres wuf_predict
-psql -h localhost -U postgres -d wuf_predict -v ON_ERROR_STOP=1 -f .\schema.sql
-```
+Si ya ejecutaste una primera versión del esquema v2 antes de este ajuste, ejecuta también una sola vez `backend/upgrade_wuf_predict_v2_dataset.sql` en `wuf_predict_v2`. No la ejecutes sobre la base antigua.
 
-También puedes crear la base desde pgAdmin y ejecutar allí el contenido de `backend/schema.sql`. El esquema nuevo ya contempla la columna nullable; no ejecutes encima las migraciones correspondientes a una base ya inicializada. Conserva una copia de seguridad antes de ejecutar SQL.
+En la siguiente sección de configuración, conserva host, puerto, usuario y contraseña de tu conexión y cambia solo el nombre de la base en `DATABASE_URL` a `wuf_predict_v2`. Crea nuevamente el usuario Analista en esa base vacía.
 
-La aplicación verifica al arrancar que la columna necesaria para HU01 permita `NULL`. Si esa verificación falla, revisa las migraciones antes de continuar.
+### Base antigua `wuf_predict`
+
+Si deseas seguir usando la base antigua, continúa con las subsecciones de migraciones HU01 existentes y apunta `DATABASE_URL` a `wuf_predict`. El backend reconoce ambos esquemas. No vuelvas a ejecutar `schema.sql` sobre una base existente.
 
 ## B. Crear el entorno e instalar dependencias
 
@@ -113,7 +112,7 @@ Copy-Item .env.example .env
 Edita `backend/.env` y sustituye, como mínimo, estos valores:
 
 ```dotenv
-DATABASE_URL=postgresql+psycopg://USUARIO:CLAVE@localhost:5432/wuf_predict
+DATABASE_URL=postgresql+psycopg://USUARIO:CLAVE@localhost:5432/wuf_predict_v2
 JWT_SECRET=REEMPLAZAR_POR_UN_SECRETO_ALEATORIO_DE_AL_MENOS_32_CARACTERES
 ```
 
@@ -127,7 +126,7 @@ python -c "import secrets; print(secrets.token_urlsafe(48))"
 
 Copia el resultado como valor de `JWT_SECRET` en `.env`. No compartas ese secreto ni subas `.env` al repositorio. El `.gitignore` excluye `.env`.
 
-Para el primer inicio local, conserva el resto de valores del ejemplo. HU01 procesa el archivo CSV que el Analista elige y envía desde la interfaz; la API no escanea `data/capturas/`. Cada archivo debe mantener SKU estables y llevar la etiqueta sintética explícita indicada en `data/capturas/README.md`. Configura `CATALOG_CSV_MAX_BYTES` para el límite de tamaño.
+Para el primer inicio local, conserva el resto de valores del ejemplo. HU01 procesa el archivo CSV que el Analista elige y envía desde la interfaz; la API no escanea `data/capturas/`. Cada archivo debe mantener SKU estables y usar un nombre `captura_AAAA-MM-DD.csv` o `captura_demo_AAAA-MM-DD.csv`; el backend valida la fecha y deriva su semana ISO. `etiqueta_adoptado` no es necesaria; si aparece en un CSV heredado, se descarta y no alimenta HU02. Configura `CATALOG_CSV_MAX_BYTES` para el límite de tamaño.
 
 ## D. Crear el usuario de la aplicación
 

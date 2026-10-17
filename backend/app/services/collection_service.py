@@ -2,9 +2,8 @@
 
 from collections import Counter
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import UTC, datetime, time
 from typing import Any
-from zoneinfo import ZoneInfo
 
 from app.domain.catalog import CatalogSource
 from app.domain.collection import CollectionRepositoryPort
@@ -16,19 +15,19 @@ class CollectionService:
         source: CatalogSource,
         repository: CollectionRepositoryPort,
         clock: Callable[[], datetime] = lambda: datetime.now(UTC).replace(tzinfo=None),
-        timezone_name: str = "America/Lima",
     ) -> None:
         self._source = source
         self._repository = repository
         self._clock = clock
-        self._timezone = ZoneInfo(timezone_name)
 
     def execute(self, actor_id: int | None, execution_type: str = "manual") -> dict[str, Any]:
         started_at = self._clock()
-        week = started_at.replace(tzinfo=UTC).astimezone(self._timezone).isocalendar().week
+        capture_date = self._source.capture_date
+        week = capture_date.isocalendar().week
         run_id = self._repository.start_run(
             actor_id=actor_id,
             started_at=started_at,
+            capture_date=capture_date,
             week=week,
             execution_type=execution_type,
             source_name=self._source.source_name,
@@ -40,7 +39,7 @@ class CollectionService:
             persisted, rejected = self._repository.persist_capture(
                 run_id=run_id,
                 pets=batch.pets,
-                captured_at=started_at,
+                captured_at=datetime.combine(capture_date, time.min),
                 week=week,
             )
             finished_at = self._clock()
@@ -68,6 +67,7 @@ class CollectionService:
                 "id_ejecucion": run_id,
                 "fuente_datos": self._source.source_name,
                 "referencia_fuente": self._source.source_reference,
+                "fecha_captura": capture_date,
                 "fecha_inicio": started_at,
                 "fecha_fin": finished_at,
                 "semana": week,

@@ -1,6 +1,6 @@
 """Contratos públicos tipados de API."""
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
@@ -31,6 +31,7 @@ class CollectionRunResponse(BaseModel):
     tipo_ejecucion: str
     fuente_datos: str
     referencia_fuente: str | None
+    fecha_captura: date
     fecha_inicio: datetime
     fecha_fin: datetime | None
     semana: int
@@ -46,6 +47,7 @@ class CollectionResultResponse(BaseModel):
     id_ejecucion: int
     fuente_datos: str
     referencia_fuente: str | None
+    fecha_captura: date
     fecha_inicio: datetime
     fecha_fin: datetime
     semana: int

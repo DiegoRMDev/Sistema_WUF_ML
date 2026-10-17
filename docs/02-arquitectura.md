@@ -52,7 +52,7 @@ Respuestas de error estables, paginación y filtros tipados deben ser comunes. N
 ## Flujo de HU y transacciones
 
 1. El Analista selecciona un archivo CSV en la interfaz y lo envía al backend como `multipart/form-data`; no se envía una ruta del equipo ni se escanea automáticamente una carpeta.
-2. El backend crea `ejecucion_recoleccion` y registra actor, fechas, semana, estado, contadores, nombre de archivo y errores resumidos. Aplica el límite de bytes y valida encabezados, tipos, dominios, longitudes y SKU duplicados. Una captura parcial se declara parcial y no se presenta como completa.
+2. El backend crea `ejecucion_recoleccion` y registra actor, fechas de procesamiento, semana de captura, estado, contadores, nombre de archivo y errores resumidos. Actualmente la fecha/semana se toma al importar; antes de HU02 deberá recibirse y validarse la fecha de captura del CSV y calcularse su semana ISO. Aplica el límite de bytes y valida encabezados, tipos, dominios, longitudes y SKU duplicados. Una captura parcial se declara parcial y no se presenta como completa.
 3. Actualizar `mascota` como estado vigente y guardar una copia de todos los atributos en `snapshot_catalogo`, ligada a ejecución y mascota. Guardar las etiquetas en `snapshot_etiqueta_condicion`; la unicidad por ejecución/mascota hace idempotente el guardado.
 4. Construir dataset desde snapshots identificables y política de etiquetas versionada; persistir metadatos y hash/versión del CSV.
 5. Entrenar con pipeline de preprocesamiento y semilla reproducible. Evaluar holdout y validación adecuada; registrar parámetros, dataset, métricas y artefacto. Activar solo al cumplir criterios configurados.
@@ -103,13 +103,19 @@ WUF_PREDICT/
 
 Actualmente hay `docs/`, `prototipo/`, `frontend/public/`, `backend/app/` (api, core, domain, services e infrastructure), `backend/scripts/`, `backend/tests/`, los scripts SQL incrementales, `data/capturas/` y `.gitignore`. No están creadas aún `frontend/src/`, `backend/migrations/`, `artifacts/`, `scripts/` en la raíz ni `README.md` en la raíz. Para HU01, el backend no consulta WUF, no escanea `data/capturas` ni usa `mascota` como fuente de entrada. La estructura objetivo se irá materializando solo cuando las HU correspondientes lo requieran.
 
+## Esquema objetivo `wuf_predict_v2`
+
+Para HU02 se preparó [`../backend/schema_wuf_predict_v2.sql`](../backend/schema_wuf_predict_v2.sql), derivado del diccionario físico original. Añade fecha de captura separada de la importación y relaciones versionadas entre dataset, ejecuciones y snapshots. El objetivo de etiqueta se almacena en los detalles del dataset (`permanece`, `salio_catalogo`, `indeterminada`), mientras el estado observado permanece en cada snapshot. Este SQL no migra ni borra la base `wuf_predict`.
+
+El repositorio reconoce el esquema HU01 anterior y v2; `CsvCatalogSource` valida la fecha desde el nombre del archivo, y el guardado comprueba mascota/SKU/snapshot/ejecución antes de confirmar. Consulta [`03-modelo-datos.md`](03-modelo-datos.md) para la migración complementaria y la política de comparación.
+
 ## HU01 implementada
 
 - Login con Argon2 y JWT de vida limitada; rol cargado desde PostgreSQL en cada solicitud; captura e historial protegidos para Analista.
 - `POST /api/v1/collection-runs`, `GET /api/v1/collection-runs`, `GET /api/v1/collection-runs/overview`; sesión y perfil en `/api/v1/auth/login` y `/api/v1/auth/me`.
 - Recolección manual de un archivo CSV elegido por el Analista.
 - `CsvCatalogSource` valida el CSV UTF-8 recibido por la API; no lee la carpeta del servidor. `CollectionRepository` reconcilia y actualiza `mascota` por SKU y crea un snapshot completo por ejecución.
-- Cada fila debe incluir etiqueta explícita `true`/`false`; se guarda en el snapshot con `origen_etiqueta='sintetica'`. No se inserta en `adopcion`; HU02 conserva la procedencia y HU03 debe impedir que un modelo experimental se publique para uso operativo.
+- `etiqueta_adoptado` es opcional únicamente para compatibilidad con CSV antiguos: el importador actual lo descarta y guarda NULL. HU02 deriva “Permanece / Salió del catálogo” al comparar snapshots. La etiqueta de salida es un proxy y no crea una fila en `adopcion` ni confirma una adopción real.
 - `(id_ejecucion, id_mascota)` evita duplicar una mascota en una ejecución. El mismo SKU entre distintos CSV conserva la identidad e historial; no se debe cambiar ni reutilizar el SKU para otro animal.
 
 ## Despliegue mínimo
