@@ -110,8 +110,10 @@ La API recibe el archivo seleccionado en cada solicitud. Si supera el tamaño m�
 
 ## Límites conocidos
 
-La simulación depende de la calidad y completitud de los CSV. Los tres demo contienen 180 perfiles por semana y estados inspirados en el prototipo; las semanas ISO son 40, 41 y 42 de 2026. En estos archivos el estado de cada SKU es igual entre semanas, por lo que todavía no hay transiciones temporales observadas; HU02 podrá mostrar estados y derivar clases, pero estos demos no prueban cambios históricos variados. `no_disponible` se usa como proxy para la etiqueta “Salió del catálogo”, no como adopción verificada. Para entrenamiento se debe particionar por SKU o por tiempo para evitar fuga entre snapshots de la misma mascota.
+La simulación depende de la calidad y completitud de los CSV. Los tres archivos base contienen 180 perfiles por semana y estados inspirados en el prototipo; las semanas ISO son 40, 41 y 42 de 2026. En ese conjunto cada SKU conserva su estado. Para probar transiciones HU02 se creó una variante separada en `data/capturas/escenario_hu02_v3/`, que se importa en una base limpia aparte. `no_disponible` se usa como proxy para la etiqueta “Salió del catálogo”, no como adopción verificada. Para entrenamiento se debe particionar por SKU o por tiempo para evitar fuga entre snapshots de la misma mascota.
 
-## Pendiente para el cierre operativo
+## Cierre de HU01 y seguimiento
 
-La interfaz ya confirmó tres ejecuciones completadas. Aún falta probar desde la aplicación una importación fallida y luego corregida con el mismo nombre, y confirmar que un usuario de otro rol recibe HTTP 403 al consultar o ejecutar HU01. Como la base v2 estaba limpia, la auditoría esperada en PostgreSQL es de 3 ejecuciones completadas, 180 mascotas y 540 snapshots; no se consultaron directamente esas filas en esta revisión.
+HU01 se considera completada dentro del alcance acordado: el usuario confirmó tres importaciones válidas de 180 perfiles cada una, consultó el historial y probó un CSV inválido, cuya validación funcionó. La extracción automática de WUF y la programación semanal no forman parte de este alcance.
+
+La verificación manual de acceso denegado para un usuario de otro rol se deja como seguimiento transversal para HU08, donde se revisará la autorización por roles en el sistema. La auditoría directa de filas en PostgreSQL (esperadas en la base limpia: 3 ejecuciones, 180 mascotas y 540 snapshots) es opcional; la interfaz confirmó las tres ejecuciones completadas.

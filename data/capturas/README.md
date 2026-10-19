@@ -8,6 +8,8 @@ Se incluyen tres capturas de demostración con fechas en el nombre (`captura_dem
 
 La fecha de captura se valida desde el nombre del archivo. Las fechas corresponden a semanas ISO 40, 41 y 42 de 2026. No se incluye `etiqueta_adoptado`: HU02 derivará “Permanece / Salió del catálogo” a partir de estados sucesivos, siguiendo el prototipo. La clase “Salió” es una aproximación del requisito original y no confirma adopción real.
 
+Para probar cantidades variables, altas y ausencias sin alterar este conjunto ni mezclar historial, consulta [`escenario_hu02_variable_v3/README.md`](escenario_hu02_variable_v3/README.md). Ese escenario requiere una base de demostración aislada porque utiliza las mismas fechas y nombres de archivo que el conjunto de 180 filas.
+
 Cada archivo representa una captura completa. Mantén el mismo `sku` para la misma mascota en todos los archivos. El backend actualiza `mascota` con la versión más reciente y conserva una fila independiente en `snapshot_catalogo` por ejecución.
 
 ## Encabezados requeridos

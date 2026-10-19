@@ -1,6 +1,6 @@
 # WUF Predict - documentación de arquitectura
 
-Este directorio convierte el avance académico y el prototipo navegable en una guía de implementación. El PDF es la fuente de requisitos, historias de usuario, modelo de datos y tecnologías; `../prototipo/` es referencia visual y de flujo. Para HU01, el Analista importa CSV manualmente como sustituto acordado de la extracción WUF. Para HU02, RF03 y el prototipo guían la comparación temporal de snapshots y las etiquetas “Permanece / Salió del catálogo”. La documentación distingue lo implementado actualmente de los cambios de esquema/contrato pendientes para HU02.
+Este directorio convierte el avance académico y el prototipo navegable en una guía de implementación. El PDF es la fuente de requisitos, historias de usuario, modelo de datos y tecnologías; `../prototipo/` es referencia visual y de flujo. Para HU01, el Analista importa CSV manualmente como sustituto acordado de la extracción WUF. Para HU02, RF03 y el prototipo guían la comparación temporal de snapshots y las etiquetas “Permanece / Salió del catálogo”. La guía HU02 documenta la implementación, los escenarios demo y el tratamiento acordado de filas indeterminadas; HU03 filtrará esas filas al entrenar.
 
 ## Documentos
 
@@ -11,7 +11,7 @@ Este directorio convierte el avance académico y el prototipo navegable en una g
 5. [Estándares de desarrollo y seguridad](05-estandares.md): prácticas de código, validación, configuración, UI y operación.
 6. [HU01 — Implementación de recolección](10-hu01-recoleccion.md): componentes, endpoints, migración, configuración e inicio local.
 7. [Guía de inicio local](11-inicio-local.md): requisitos, instalación de dependencias y pasos para arrancar backend y frontend en Windows.
-8. [Pendiente HU02 — variación de CSV demo](12-pendiente-datos-demo-hu02.md): cambios temporales y de cantidad a preparar al construir Dataset Histórico.
+8. [HU02 — guía del Dataset Histórico](13-hu02-dataset-historico.md): reglas de cohorte, endpoints, interfaz, escenarios demo, validación y pendientes antes de HU03.
 
 ## Convenciones
 
@@ -20,7 +20,7 @@ Este directorio convierte el avance académico y el prototipo navegable en una g
 - El prototipo guía la estructura visual, la navegación y el flujo esperado; sus cifras y registros estáticos son de muestra. Los datos funcionales se consultan desde PostgreSQL.
 - El backend obtiene la fecha de captura del nombre validado del CSV, calcula semana ISO y audita aparte el momento de importación.
 - La salida del catálogo que HU02 deriva comparando snapshots es una etiqueta proxy y no confirma adopción real.
-- `wuf_predict` se conserva como base anterior; el backend reconoce también `wuf_predict_v2`. La variación futura de estados/cantidades de CSV está registrada como pendiente de HU02.
+- `wuf_predict` y `wuf_predict_v2` se conservan sin cambios; el esquema v2 puede instalarse en una base limpia `wuf_predict_v3`. Los CSV con transiciones controladas están en `data/capturas/escenario_hu02_v3/`; la variante variable (180→165→190), con salida gradual por `no_disponible`, está en `data/capturas/escenario_hu02_variable_v3/` y el usuario confirmó su prueba en una base demo aislada.
 
 ## Orden de lectura
 

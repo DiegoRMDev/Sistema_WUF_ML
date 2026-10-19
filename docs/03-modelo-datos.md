@@ -1,6 +1,6 @@
 # Modelo físico y diccionario de datos
 
-Este documento conserva el diccionario físico del avance y diferencia el esquema actualmente usado del diseño v2 para HU02. [`../backend/schema.sql`](../backend/schema.sql) corresponde a la base anterior; [`../backend/schema_wuf_predict_v2.sql`](../backend/schema_wuf_predict_v2.sql) crea el esquema objetivo en una base vacía `wuf_predict_v2`. El SQL v2 no migra ni elimina datos de `wuf_predict`.
+Este documento conserva el diccionario físico del avance y diferencia el esquema anterior del diseño v2 para HU02. [`../backend/schema.sql`](../backend/schema.sql) corresponde a la base anterior; [`../backend/schema_wuf_predict_v2.sql`](../backend/schema_wuf_predict_v2.sql) crea el esquema objetivo en una base vacía `wuf_predict_v2` o `wuf_predict_v3`. El SQL no migra ni elimina datos existentes.
 
 ## Diccionario de datos del esquema anterior
 
@@ -226,7 +226,7 @@ El archivo `schema.sql` crea el modelo físico documentado y las extensiones de 
 
 ## Esquema v2 para HU02 y el prototipo
 
-La base nueva `wuf_predict_v2` parte del diccionario original y acomoda las extensiones necesarias para cumplir RF03 y la vista del prototipo. El SQL completo está en [`../backend/schema_wuf_predict_v2.sql`](../backend/schema_wuf_predict_v2.sql). La base `wuf_predict` y su `schema.sql` se conservan sin cambios.
+La base `wuf_predict_v2` y la nueva base limpia `wuf_predict_v3` parten del diccionario original y acomoda las extensiones necesarias para cumplir RF03 y la vista del prototipo. El SQL completo está en [`../backend/schema_wuf_predict_v2.sql`](../backend/schema_wuf_predict_v2.sql). La base `wuf_predict` y su `schema.sql` se conservan sin cambios.
 
 Cambios del diseño v2:
 
@@ -235,6 +235,7 @@ Cambios del diseño v2:
 - `snapshot_catalogo.id_dataset` del esquema anterior se sustituye en v2 por `dataset_snapshot`, que hace explícito que varias versiones de dataset pueden reutilizar snapshots y que cada dataset puede agrupar muchas observaciones.
 - `dataset_ejecucion` registra las ejecuciones fuente de cada dataset, incluso capturas completas donde una mascota está ausente.
 - `dataset_detalle` mantiene una fila por mascota y dataset, vincula snapshots de referencia/resultado y guarda la etiqueta derivada. La clase `salio_catalogo` puede tener snapshot final con estado `no_disponible`, como muestra el prototipo, o no tener snapshot si la mascota falta en una captura completa; en ambos casos se registra la ejecución de resultado. Si no hay evidencia suficiente, la clase es `indeterminada`.
+- HU02 conserva también las filas `indeterminada` y su `motivo_indeterminado` en el dataset versionado y en el CSV de auditoría. HU03 debe filtrarlas al cargar los datos para entrenamiento; el archivo original no se modifica.
 - `dataset_historico` registra rango temporal, versión de regla, procedencia y hash opcional del CSV generado. Los datasets derivados del catálogo se marcan `derivada_catalogo`; esto no significa adopción verificada.
 
 ### Regla funcional propuesta a partir del avance original
@@ -243,14 +244,14 @@ Una captura CSV debe representar un catálogo completo y una ejecución completa
 
 La UI del prototipo muestra semanas 6, 7 y 8 como contenido ilustrativo. En los CSV demo fechados 28-sep, 05-oct y 12-oct de 2026, el calendario ISO corresponde a semanas 40, 41 y 42. Se conservará la vista semanal, pero los datos funcionales mostrarán su semana calendario ISO, no copiarán los números estáticos del prototipo.
 
-### Crear `wuf_predict_v2` en pgAdmin
+### Crear una base v2/v3 vacía en pgAdmin
 
 1. En pgAdmin, conéctate al mismo servidor PostgreSQL 16 que usa el proyecto.
-2. En **Databases**, crea la base `wuf_predict_v2` con propietario igual al usuario configurado para la aplicación (o al propietario local usado en `wuf_predict`). No borres `wuf_predict`.
-3. Selecciona `wuf_predict_v2`, abre **Query Tool**, carga [`../backend/schema_wuf_predict_v2.sql`](../backend/schema_wuf_predict_v2.sql) y ejecútalo una sola vez.
+2. En **Databases**, crea la base que usarás (`wuf_predict_v2` o `wuf_predict_v3`) con propietario igual al usuario configurado para la aplicación. Para HU02 controlada usa `wuf_predict_v3`; conserva las anteriores.
+3. Selecciona la base vacía creada, abre **Query Tool**, carga [`../backend/schema_wuf_predict_v2.sql`](../backend/schema_wuf_predict_v2.sql) y ejecútalo una sola vez.
 4. Comprueba que se crearon las tablas y restricciones sin error. El script usa transacción y no contiene `DROP DATABASE` ni elimina otra base.
-5. Si ejecutaste el primer SQL v2 antes de esta actualización, aplica una sola vez [`../backend/upgrade_wuf_predict_v2_dataset.sql`](../backend/upgrade_wuf_predict_v2_dataset.sql) en `wuf_predict_v2`. Esta agrega el registro de ejecuciones fuente y permite que “Salió” tenga snapshot final `no_disponible` conforme al prototipo.
-6. El backend HU01 ahora acepta ambos esquemas, calcula semana ISO desde el nombre del archivo, no persiste la etiqueta sintética y valida la relación mascota/SKU/snapshot/ejecución antes de confirmar. Cambia `DATABASE_URL` local para apuntar a `wuf_predict_v2` y reinicia la API solo cuando la base y el usuario estén preparados. No publiques el `.env`.
+5. Si instalaste una primera revisión del esquema v2 que no tiene la tabla `dataset_ejecucion`, aplica una sola vez [`../backend/upgrade_wuf_predict_v2_dataset.sql`](../backend/upgrade_wuf_predict_v2_dataset.sql). El esquema completo actual ya incluye esa tabla y no requiere esa migración.
+6. El backend HU01 ahora acepta ambos esquemas, calcula semana ISO desde el nombre del archivo, no persiste la etiqueta sintética y valida la relación mascota/SKU/snapshot/ejecución antes de confirmar. Cambia `DATABASE_URL` local para apuntar al nombre de base elegido y reinicia la API solo cuando la base y el usuario estén preparados. No publiques el `.env`.
 
 La aplicación del SQL y de la migración se ejecuta por separado en pgAdmin; este trabajo no modificó tu PostgreSQL ni sustituye un respaldo de `wuf_predict`.
 

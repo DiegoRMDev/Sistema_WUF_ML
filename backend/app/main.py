@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
-from app.api.v1 import auth, collection
+from app.api.v1 import auth, collection, datasets
 from app.core.config import get_settings
 from app.infrastructure.database import verify_hu01_schema
 
@@ -76,6 +76,7 @@ def health() -> dict[str, str]:
 
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(collection.router, prefix="/api/v1")
+app.include_router(datasets.router, prefix="/api/v1")
 
 # Envuelve toda la app para que las respuestas 500 también conserven los encabezados CORS.
 app = CORSMiddleware(

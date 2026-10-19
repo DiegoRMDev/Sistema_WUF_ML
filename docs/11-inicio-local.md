@@ -7,7 +7,7 @@ Esta guía permite que otra persona prepare el entorno local y ejecute el backen
 - Windows y PowerShell.
 - Python 3.12 o 3.13. Comprueba las versiones disponibles con `py --list`.
 - PostgreSQL 16 instalado y en ejecución.
-- Para la configuración nueva: una base `wuf_predict_v2` y un usuario PostgreSQL con permisos sobre ella. La base antigua `wuf_predict` puede conservarse como respaldo.
+- Para HU01 se puede continuar en `wuf_predict_v2`. Para la prueba aislada de HU02, crea `wuf_predict_v3` y usa los CSV de `data/capturas/escenario_hu02_v3/`; conserva las bases anteriores como respaldo.
 - Git, si se descargó el proyecto desde GitHub.
 
 > Los comandos no requieren instalar herramientas pagadas. Las dependencias de Python se declaran en `backend/pyproject.toml`.
@@ -53,6 +53,17 @@ Crea `wuf_predict_v2` desde pgAdmin, selecciona UTF8 y ejecuta una sola vez `bac
 Si ya ejecutaste una primera versión del esquema v2 antes de este ajuste, ejecuta también una sola vez `backend/upgrade_wuf_predict_v2_dataset.sql` en `wuf_predict_v2`. No la ejecutes sobre la base antigua.
 
 En la siguiente sección de configuración, conserva host, puerto, usuario y contraseña de tu conexión y cambia solo el nombre de la base en `DATABASE_URL` a `wuf_predict_v2`. Crea nuevamente el usuario Analista en esa base vacía.
+
+### Base limpia v3 para probar HU02
+
+1. En pgAdmin, crea una base nueva llamada `wuf_predict_v3` con codificación UTF8. No borres ni limpies `wuf_predict_v2`.
+2. Conéctate a `wuf_predict_v3`, abre Query Tool y ejecuta una vez `backend/schema_wuf_predict_v2.sql`. Esta versión del esquema incluye `dataset_ejecucion`; no requiere ejecutar después `upgrade_wuf_predict_v2_dataset.sql`.
+3. En `backend/.env`, cambia `DATABASE_URL` para que apunte a `/wuf_predict_v3` conservando tu usuario/host/puerto. Reinicia el backend para que lea la variable.
+4. Crea de nuevo el usuario Analista en v3 con el procedimiento de `10-hu01-recoleccion.md` (los usuarios de v2 no se copian).
+5. Desde la sección Recolección importa, en este orden, los tres archivos de `data/capturas/escenario_hu02_v3/`: `captura_demo_2026-09-28.csv`, `captura_demo_2026-10-05.csv`, `captura_demo_2026-10-12.csv`.
+6. Comprueba que las tres ejecuciones terminen como Completada. Ve a Dataset histórico y pulsa Generar dataset. El resultado controlado esperado es 108 filas de cohorte: 66 Permanecen y 42 Salieron del catálogo.
+
+Al cambiar de base en el `.env`, la aplicación deja de leer/escribir en v2 mientras esté apuntando a v3. Para volver, restaura el nombre de la base anterior y reinicia el backend. No compartas el `.env` ni subas contraseñas a Git.
 
 ### Base antigua `wuf_predict`
 

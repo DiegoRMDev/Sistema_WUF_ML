@@ -1,5 +1,5 @@
 -- WUF Predict v2: esquema objetivo para HU01/HU02 sobre PostgreSQL 16.
--- Ejecutar SOLO conectado a una base vacía llamada wuf_predict_v2.
+-- Ejecutar SOLO conectado a una base vacía (wuf_predict_v2 o wuf_predict_v3).
 -- No crea ni elimina bases; conserva backend/schema.sql para la instalación anterior.
 -- HU01 recibirá la fecha de captura del CSV, mientras fecha_inicio/fecha_fin
 -- auditan el momento real de importación. La semana se calcula en la aplicación

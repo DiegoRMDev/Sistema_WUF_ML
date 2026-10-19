@@ -3,7 +3,7 @@
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
 
 
 class LoginRequest(BaseModel):
@@ -71,3 +71,18 @@ class CollectionOverview(BaseModel):
     ultima_captura: dict[str, object] | None
     proxima_ejecucion: datetime | None
     programacion_mensaje: str
+
+
+class DatasetCreateRequest(BaseModel):
+    """Periodo de capturas completas que define también el horizonte de seguimiento."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    fecha_desde: date
+    fecha_hasta: date
+
+    @model_validator(mode="after")
+    def validate_period(self) -> "DatasetCreateRequest":
+        if self.fecha_hasta <= self.fecha_desde:
+            raise ValueError("La fecha final debe ser posterior a la inicial.")
+        return self

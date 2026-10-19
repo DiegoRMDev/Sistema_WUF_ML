@@ -43,12 +43,14 @@ def verify_hu01_schema() -> None:
             columns.get(("ejecucion_recoleccion", "fecha_captura")) != "NO"
             or columns.get(("snapshot_catalogo", "id_ejecucion")) != "NO"
             or columns.get(("dataset_snapshot", "id_snapshot")) != "NO"
+            or columns.get(("dataset_ejecucion", "id_ejecucion")) != "NO"
             or columns.get(("dataset_detalle", "etiqueta_catalogo")) != "NO"
+            or columns.get(("dataset_detalle", "id_snapshot_referencia")) != "NO"
         )
     else:
         v2_schema_is_valid = ("snapshot_catalogo", "id_dataset") in columns
     if not common_schema_is_valid or not v2_schema_is_valid:
         raise RuntimeError(
-            "El esquema PostgreSQL no corresponde a HU01 anterior ni a HU01 v2. "
+            "El esquema PostgreSQL no corresponde a HU01/HU02 v2. "
             "Verifica que ejecutaste el SQL correspondiente a la base configurada."
         )

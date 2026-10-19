@@ -4,7 +4,7 @@ Las historias son módulos funcionales desplegables por sprint. Las tareas trans
 
 ## HU01 - Recolección y snapshots (S1, alta)
 
-**Estado de implementación:** flujo principal implementado y demostrado por el usuario con tres importaciones CSV completadas desde la interfaz. Cada archivo guardó 180 perfiles y 0 rechazados; el historial muestra las semanas ISO 40, 41 y 42 (fechas 28/09/26, 05/10/26 y 12/10/26), con 108 disponibles, 72 no disponibles y 0 sin publicar por captura. Esto confirma el recorrido feliz de selección, envío, persistencia registrada y consulta del historial; no sustituye las pruebas negativas ni una auditoría directa de todas las filas de PostgreSQL.
+**Estado de implementación: completada en el alcance acordado.** HU01 usa importación manual de CSV como sustituto de la extracción automática de WUF. El usuario confirmó tres importaciones completadas desde la interfaz; cada archivo mostró 180 perfiles y el historial registró las semanas ISO 40, 41 y 42 (28/09/26, 05/10/26 y 12/10/26), con 108 disponibles, 72 no disponibles y 0 sin publicar por captura. También probó un CSV inválido y confirmó que la validación funcionó. La extracción real desde WUF y la programación semanal se excluyen del alcance implementable acordado.
 
 **Alcance vigente:** importación manual de CSV sintéticos acordada como sustituto de la extracción automática de WUF, que no está disponible para este proyecto. La programación semanal no está implementada. Ver [`01-vision-requisitos.md`](01-vision-requisitos.md) para la adaptación de RF01.
 
@@ -24,7 +24,7 @@ Las historias son módulos funcionales desplegables por sprint. Las tareas trans
 
 **Verificación técnica realizada en esta revisión:** cinco pruebas automatizadas cubren captura válida, fila con varios campos inválidos, SKU repetido dentro del mismo CSV, CSV sin perfiles válidos y nombre ya importado. La revisión de rutas confirma que la carga, el historial y el resumen requieren rol Analista; la fábrica de fuentes impide volver a importar nombres cuya ejecución esté en proceso, completada o parcial. La simulación no satisface la extracción real de WUF ni la periodicidad automática originalmente descritas.
 
-**Pendiente para cierre operativo completo:** probar desde la aplicación una importación fallida y su reintento corregido con el mismo nombre; confirmar una respuesta 403 al consultar/ejecutar HU01 con un usuario de otro rol; y, si se requiere evidencia de persistencia física, verificar en PostgreSQL los conteos esperados de 3 ejecuciones, 180 mascotas y 540 snapshots. No se hizo una auditoría directa de esas filas en esta revisión. La extracción real desde WUF y la programación semanal se excluyen del alcance implementable acordado, porque HU01 usa importación manual de CSV.
+**Seguimiento transversal para HU08:** verificar manualmente que un usuario de otro rol recibe HTTP 403 al consultar o ejecutar las rutas HU01. La autorización está aplicada en el backend; esta prueba con una cuenta distinta se deja para la validación de roles del sistema en HU08. La inspección directa de conteos en PostgreSQL queda como comprobación opcional de persistencia, pues el historial de la interfaz ya confirmó las tres ejecuciones.
 
 ## HU02 - Dataset histórico etiquetado/versionado (S1, alta)
 
@@ -34,13 +34,18 @@ Las historias son módulos funcionales desplegables por sprint. Las tareas trans
 - Derivar etiqueta final desde snapshots consecutivos con regla versionada basada en el prototipo: `disponible` -> `permanece`; `no_disponible` -> `salio_catalogo` (proxy RF03); ausencia en una captura completa -> `salio_catalogo`; `sin_publicar`, captura parcial o evidencia insuficiente -> `indeterminada`.
 - La etiqueta de entrenamiento se produce en HU02 y no se exige como verdad de entrada a HU01. `etiqueta_adoptado` queda como dato legado nullable en snapshots, sin uso para el objetivo derivado.
 - Exportar un CSV con atributos de la captura de referencia, secuencia/semana de estados, etiqueta final, regla/version, rango, conteos y procedencia. Versionar el dataset y calcular hash para identificar el artefacto reproducible.
-- Evitar fuga temporal: las variables predictoras deben preceder al periodo usado para decidir la etiqueta. Excluir snapshots insuficientes/ambiguos con conteo y motivo visibles.
+- Evitar fuga temporal: las variables predictoras deben preceder al periodo usado para decidir la etiqueta. Conservar los registros `indeterminada` con su motivo en el artefacto auditable HU02; HU03 los excluye al cargar las muestras de entrenamiento.
 
 **Aceptación base:** vista temporal alineada con el prototipo; etiqueta final reproducible y explicable; CSV descargable con versión/metadatos; semana calendario ISO derivada del nombre validado; proxy de salida separado de adopción verificada; evidencia insuficiente informada explícitamente.
+
+**Implementación:** `docs/13-hu02-dataset-historico.md` describe cohorte, selección de periodo/horizonte, endpoints, flujo de pantalla y decisiones de auditoría. Se validó el caso controlado de tres capturas completas de 180 perfiles y el usuario confirmó que la variante 180→165→190 produce el resultado esperado en la interfaz. Los filtros de texto/etiqueta solo modifican las filas visibles; la exportación conserva todas las filas del dataset.
+
+**Decisión de auditoría:** HU02 exporta todos los registros, incluidas filas `indeterminada` con `motivo_indeterminado`. La tabla muestra el motivo junto a la etiqueta; HU03 excluirá esas filas al preparar la muestra de entrenamiento, sin modificar el CSV fuente.
 
 ## HU03 - Entrenamiento, evaluación y predicción (S2, alta)
 
 - Entrenar Random Forest usando pipeline, semilla y configuración validada. Partición por tiempo o grupo si hay múltiples observaciones de la misma mascota, para evitar fuga; documentar comparación con split 80/20 del avance.
+- Al preparar el entrenamiento, excluir `indeterminada` y registrar el conteo/motivos excluidos. No alterar el CSV completo exportado por HU02.
 - Evaluar Accuracy, Precision, Recall y F1 para clase positiva inequívoca; también soporte por clase y matriz de confusión para interpretar desbalance.
 - Guardar experimento y artefacto de forma versionada y verificar integridad al cargar. El origen del dataset debe distinguir datos sintéticos de demostración, etiquetas derivadas del catálogo y adopciones verificadas. Los modelos entrenados con proxy de salida del catálogo son experimentales y no deben presentarse como modelos validados para adopciones reales ni alimentar KPI reales.
 - Alinear la salida con la interfaz del prototipo (probabilidad de permanencia) y RF06 (probabilidad de adopción): documentar clase positiva, conversión/complemento, periodo objetivo, calibración y prioridad antes de implementar HU03. Baja probabilidad de adopción debe recibir prioridad de difusión alta según OE1.
