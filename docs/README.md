@@ -1,6 +1,6 @@
 # WUF Predict - documentación de arquitectura
 
-Este directorio convierte el avance académico y el prototipo navegable en una guía de implementación. El PDF es la fuente de requisitos, historias de usuario, modelo de datos y tecnologías; `../prototipo/` es referencia visual y de flujo. Para HU01, el Analista importa CSV manualmente como sustituto acordado de la extracción WUF. Para HU02, RF03 y el prototipo guían la comparación temporal de snapshots y las etiquetas “Permanece / Salió del catálogo”. La guía HU02 documenta la implementación, los escenarios demo y el tratamiento acordado de filas indeterminadas; HU03 filtrará esas filas al entrenar.
+Este directorio convierte el avance académico y el prototipo navegable en una guía de implementación. El PDF es la fuente de requisitos, historias de usuario, modelo de datos y tecnologías; `../prototipo/` es referencia visual y de flujo. Para HU01, el Analista importa CSV manualmente como sustituto acordado de la extracción WUF. HU02 compara snapshots y deriva “Permanece / Salió del catálogo”; HU03 excluye las etiquetas indeterminadas sin modificar la exportación auditable.
 
 ## Documentos
 
@@ -11,7 +11,8 @@ Este directorio convierte el avance académico y el prototipo navegable en una g
 5. [Estándares de desarrollo y seguridad](05-estandares.md): prácticas de código, validación, configuración, UI y operación.
 6. [HU01 — Implementación de recolección](10-hu01-recoleccion.md): componentes, endpoints, migración, configuración e inicio local.
 7. [Guía de inicio local](11-inicio-local.md): requisitos, instalación de dependencias y pasos para arrancar backend y frontend en Windows.
-8. [HU02 — guía del Dataset Histórico](13-hu02-dataset-historico.md): reglas de cohorte, endpoints, interfaz, escenarios demo, validación y pendientes antes de HU03.
+8. [HU02 — guía del Dataset Histórico](13-hu02-dataset-historico.md): reglas de cohorte, endpoints, interfaz, escenarios demo y tratamiento de filas indeterminadas.
+9. [HU03 — Entrenamiento y predicción](14-hu03-entrenamiento-modelo.md): preparación de datos, Random Forest, métricas, artefactos, migración y uso de la interfaz.
 
 ## Convenciones
 

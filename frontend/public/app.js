@@ -8,6 +8,14 @@ const ROLE_LABELS = {
 const API_BASE = window.WUF_CONFIG?.apiBaseUrl?.replace(/\/$/, "");
 
 function $(id) { return document.getElementById(id); }
+// Los avisos solo ocupan espacio cuando realmente hay un mensaje que mostrar.
+function setNotice(id, text = "", state = "") {
+  const notice = $(id);
+  if (!notice) return;
+  notice.textContent = text;
+  notice.dataset.state = state;
+  notice.hidden = !text;
+}
 function session() {
   try { return JSON.parse(sessionStorage.getItem("wuf.session")); }
   catch (_error) { return null; }
@@ -105,6 +113,8 @@ function showView(name) {
     loadCollection();
   }
   if (name === "dataset") loadDataset();
+  if (name === "entrenamiento") loadModels();
+  if (name === "catalogo") loadCatalog();
 }
 
 function openSidebar() {
@@ -306,8 +316,7 @@ async function loadDataset() {
   window.currentDatasetId = null;
   window.currentDatasetRunCount = 0;
   $("datasetFilterCount").textContent = "";
-  $("datasetMessage").textContent = "";
-  $("datasetMessage").dataset.state = "";
+  setNotice("datasetMessage");
   body.replaceChildren(makeMessageRow("Cargando datasets…"));
   try {
     const [sources, page] = await Promise.all([api("/datasets/sources"), api("/datasets")]);
@@ -335,8 +344,7 @@ async function loadDataset() {
     $("datasetSummary").textContent = "No se pudo cargar el dataset.";
     $("datasetProvenance").textContent = "";
     $("datasetFilterCount").textContent = "Mostrando 0 de 0";
-    $("datasetMessage").textContent = cause.message;
-    $("datasetMessage").dataset.state = "error";
+    setNotice("datasetMessage", cause.message, "error");
     body.replaceChildren(makeDatasetMessageRow("No se pudo cargar el dataset histórico."));
   }
 }
@@ -411,8 +419,7 @@ function renderDataset(data) {
   $("datasetVersion").textContent = `Versión ${meta.version}`;
   $("datasetSummary").textContent = `· ${meta.nro_registros} registros · ${meta.permanece} permanecen · ${meta.salio} salieron del catálogo${meta.indeterminada ? ` · ${meta.indeterminada} indeterminadas` : ""}`;
   $("datasetProvenance").textContent = `Rango ${formatCaptureDate(meta.fecha_desde)}–${formatCaptureDate(meta.fecha_hasta)} · etiquetas derivadas del catálogo (proxy) · regla ${meta.version_regla_etiquetado}`;
-  $("datasetMessage").textContent = "";
-  $("datasetMessage").dataset.state = "";
+  setNotice("datasetMessage");
   $("exportDatasetButton").disabled = false;
 
   const head = $("datasetHead");
@@ -472,19 +479,16 @@ async function generateDataset() {
   button.disabled = true;
   const fechaDesde = $("datasetFrom").value;
   const fechaHasta = $("datasetTo").value;
-  $("datasetMessage").textContent = "Generando una versión con el periodo seleccionado…";
-  $("datasetMessage").dataset.state = "";
+  setNotice("datasetMessage", "Generando una versión con el periodo seleccionado…");
   try {
     await api("/datasets", {
       method: "POST",
       body: JSON.stringify({ fecha_desde: fechaDesde, fecha_hasta: fechaHasta }),
     });
     await loadDataset();
-    $("datasetMessage").textContent = "Dataset generado correctamente.";
-    $("datasetMessage").dataset.state = "success";
+    setNotice("datasetMessage", "Dataset generado correctamente.", "success");
   } catch (cause) {
-    $("datasetMessage").textContent = cause.message;
-    $("datasetMessage").dataset.state = "error";
+    setNotice("datasetMessage", cause.message, "error");
   } finally { button.disabled = false; }
 }
 
@@ -502,9 +506,364 @@ async function exportDataset() {
     link.href = url; link.download = `dataset_${window.currentDatasetId}.csv`;
     document.body.append(link); link.click(); link.remove(); URL.revokeObjectURL(url);
   } catch (cause) {
-    $("datasetMessage").textContent = cause.message;
-    $("datasetMessage").dataset.state = "error";
+    setNotice("datasetMessage", cause.message, "error");
   }
+}
+
+function modelStatusPresentation(status) {
+  return ({
+    vigente: ["Vigente", "alta"],
+    publicable: ["Listo para publicar", "media"],
+    no_publicable: ["No supera el umbral", "baja"],
+    publicado: ["Publicado anteriormente", "neutral"],
+  })[status] || [status || "Desconocido", "neutral"];
+}
+
+function appendTextCell(row, value, className = "") {
+  const cell = document.createElement("td");
+  cell.textContent = value;
+  if (className) cell.className = className;
+  row.append(cell);
+  return cell;
+}
+
+function formatMetric(value) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? `${(numeric * 100).toFixed(1)} %` : "—";
+}
+
+async function loadModels() {
+  const history = $("modelHistory");
+  history.replaceChildren(modelTableMessage("Cargando versiones…"));
+  setNotice("modelMessage");
+  try {
+    const [options, modelPage] = await Promise.all([api("/models/options"), api("/models")]);
+    window.modelDefaults = options.defaults;
+    populateModelDatasets(options.datasets);
+    $("modelThreshold").textContent = `Accuracy mínima para publicar: ${formatMetric(options.defaults.min_accuracy)}. Semilla reproducible: ${options.defaults.random_state}.`;
+    $("modelTestSize").value = String(options.defaults.test_size);
+    $("modelTrees").value = options.defaults.n_estimators;
+    renderModels(modelPage.items);
+  } catch (cause) {
+    history.replaceChildren(modelTableMessage("No se pudo cargar el historial de modelos."));
+    setNotice("modelMessage", cause.message, "error");
+  }
+}
+
+function populateModelDatasets(datasets) {
+  const select = $("modelDataset");
+  const previous = select.value;
+  select.replaceChildren();
+  datasets.forEach((dataset) => {
+    const option = document.createElement("option");
+    option.value = dataset.id_dataset;
+    option.textContent = `${dataset.version} · ${dataset.registros} filas · ${dataset.permanece} permanecen · ${dataset.salio_catalogo} salieron · ${dataset.indeterminada} indeterminadas`;
+    select.append(option);
+  });
+  if (datasets.some((dataset) => String(dataset.id_dataset) === previous)) select.value = previous;
+  $("trainModelButton").disabled = datasets.length === 0;
+  if (!datasets.length) {
+    const option = document.createElement("option");
+    option.value = "";
+    option.textContent = "Genera primero un dataset en Dataset Histórico";
+    select.append(option);
+  }
+}
+
+function modelTableMessage(message, columnCount = 6) {
+  const row = document.createElement("tr");
+  const cell = document.createElement("td");
+  cell.colSpan = columnCount;
+  cell.className = "muted";
+  cell.textContent = message;
+  row.append(cell);
+  return row;
+}
+
+function renderModels(models) {
+  const current = models.find((model) => model.es_vigente);
+  const latest = current || models[0];
+  renderModelDetails(latest);
+  const body = $("modelHistory");
+  body.replaceChildren();
+  if (!models.length) {
+    body.append(modelTableMessage("Todavía no hay entrenamientos registrados."));
+    return;
+  }
+  models.forEach((model) => {
+    const row = document.createElement("tr");
+    appendTextCell(row, model.version);
+    appendTextCell(row, model.dataset_version);
+    const statusCell = document.createElement("td");
+    const [statusText, statusClass] = modelStatusPresentation(model.estado);
+    const badge = document.createElement("span");
+    badge.className = `tag ${statusClass}`;
+    badge.textContent = statusText;
+    statusCell.append(badge);
+    row.append(statusCell);
+    appendTextCell(row, formatMetric(model.accuracy_score));
+    appendTextCell(row, formatDate(model.fecha_entrenamiento));
+    const actionCell = document.createElement("td");
+    const actionGroup = document.createElement("div");
+    actionGroup.className = "model-actions";
+    const viewButton = document.createElement("button");
+    viewButton.type = "button";
+    viewButton.textContent = "Ver";
+    viewButton.setAttribute("aria-label", `Ver detalles de ${model.version}`);
+    // El historial mantiene cada evaluación para que se pueda consultar después de publicar.
+    viewButton.addEventListener("click", () => renderModelDetails(model));
+    actionGroup.append(viewButton);
+    if (model.estado === "publicable") {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "primary";
+      button.textContent = "Publicar y predecir";
+      button.addEventListener("click", () => activateModel(model.id_modelo));
+      actionGroup.append(button);
+    } else if (model.es_vigente) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = "Actualizar predicciones";
+      button.addEventListener("click", () => refreshPredictions(model.id_modelo));
+      actionGroup.append(button);
+    }
+    actionCell.append(actionGroup);
+    row.append(actionCell);
+    body.append(row);
+  });
+}
+
+function renderModelDetails(model) {
+  const badge = $("modelStatus");
+  const title = $("modelTitle");
+  const summary = $("modelSummary");
+  const metrics = $("modelMetrics");
+  const importance = $("modelImportance");
+  const confusionBody = $("modelConfusion");
+  const note = $("modelEvaluationNote");
+  metrics.replaceChildren();
+  importance.replaceChildren();
+  confusionBody.replaceChildren();
+  if (!model) {
+    title.textContent = "Modelo vigente";
+    badge.className = "tag neutral";
+    badge.textContent = "Sin modelo";
+    summary.textContent = "Entrena y publica una versión para ver sus métricas.";
+    importance.append(modelText("p", "Sin resultados todavía.", "muted"));
+    confusionBody.append(modelTableMessage("Sin resultados todavía.", 3));
+    note.textContent = "";
+    return;
+  }
+  const [statusText, statusClass] = modelStatusPresentation(model.estado);
+  title.textContent = model.es_vigente
+    ? `Modelo vigente: Random Forest ${model.version}`
+    : `Detalle de versión: Random Forest ${model.version}`;
+  badge.className = `tag ${statusClass}`;
+  badge.textContent = statusText;
+  const meta = model.metadatos_entrenamiento || {};
+  summary.textContent = `Dataset ${model.dataset_version} · ${model.nro_registros_entrenamiento} filas de entrenamiento · ${model.nro_registros_prueba} de prueba (${formatMetric(meta.test_size)}) · ${model.nro_registros_excluidos} indeterminadas excluidas · ${formatDate(model.fecha_entrenamiento)} · ${meta.n_estimators || "—"} árboles · profundidad ${meta.max_depth ?? "sin límite"}`;
+
+  [["Accuracy", model.accuracy_score], ["Precision", model.precision_score],
+    ["Recall", model.recall_score], ["F1-score", model.f1_score]].forEach(([label, value]) => {
+    const card = document.createElement("div");
+    card.className = "metric";
+    card.append(modelText("div", formatMetric(value), "n"), modelText("div", label, "l"));
+    metrics.append(card);
+  });
+  const values = model.importancia_variables || [];
+  if (!values.length) importance.append(modelText("p", "Sin resultados de importancia.", "muted"));
+  const max = Math.max(0.000001, ...values.map((item) => Number(item.importance) || 0));
+  values.forEach((item) => {
+    const label = modelText("div", String(item.feature).replace(/^(numeric|categorical)__/, "").replaceAll("_", " "));
+    const track = document.createElement("div");
+    track.className = "track";
+    const fill = document.createElement("div");
+    fill.className = "fill";
+    fill.style.width = `${Math.max(1, Number(item.importance) / max * 100)}%`;
+    track.append(fill);
+    importance.append(label, track, modelText("div", Number(item.importance).toFixed(3), "v"));
+  });
+  const matrix = model.matriz_confusion || [];
+  const labels = ["Permanece", "Salió del catálogo"];
+  if (matrix.length === 2) {
+    matrix.forEach((valuesRow, index) => {
+      const row = document.createElement("tr");
+      appendTextCell(row, `Real: ${labels[index]}`);
+      valuesRow.forEach((value) => appendTextCell(row, String(value), "num"));
+      confusionBody.append(row);
+    });
+  } else confusionBody.append(modelTableMessage("No hay matriz de confusión.", 3));
+  const classCounts = meta.conteo_clases || {};
+  note.textContent = `Prueba por grupos de SKU; distribución entrenable: ${classCounts.permanece || 0} permanecen y ${classCounts.salio_catalogo || 0} salieron. Clase positiva: “Salió del catálogo”. Umbral de publicación: ${formatMetric(model.umbral_accuracy)}. Motivos de exclusión: ${JSON.stringify(meta.motivos_excluidos || {})}.`;
+}
+
+function modelText(tagName, value, className = "") {
+  const element = document.createElement(tagName);
+  element.textContent = value;
+  if (className) element.className = className;
+  return element;
+}
+
+async function trainModel() {
+  const button = $("trainModelButton");
+  button.disabled = true;
+  setNotice("modelMessage", "Preparando los datos y entrenando el modelo…");
+  const depth = $("modelDepth").value;
+  try {
+    const model = await api("/models/train", {
+      method: "POST",
+      body: JSON.stringify({
+        id_dataset: Number($("modelDataset").value),
+        proporcion_prueba: Number($("modelTestSize").value),
+        cantidad_arboles: Number($("modelTrees").value),
+        profundidad_maxima: depth ? Number(depth) : null,
+      }),
+    });
+    setNotice("modelMessage", model.estado === "publicable"
+      ? `Entrenamiento ${model.version} finalizado. Revisa las métricas y publícalo desde el historial si estás de acuerdo.`
+      : `Entrenamiento ${model.version} finalizado, pero Accuracy no alcanza el umbral; queda guardado sin publicar.`, model.estado === "publicable" ? "success" : "error");
+    await loadModels();
+    // Muestra de inmediato la evaluación de la versión recién entrenada, esté o no publicable.
+    renderModelDetails(model);
+    setNotice("modelMessage", model.estado === "publicable"
+      ? `Entrenamiento ${model.version} finalizado. Revisa las métricas y publícalo desde el historial si estás de acuerdo.`
+      : `Entrenamiento ${model.version} finalizado, pero Accuracy no alcanza el umbral; queda guardado sin publicar.`, model.estado === "publicable" ? "success" : "error");
+  } catch (cause) {
+    setNotice("modelMessage", cause.message, "error");
+  } finally {
+    button.disabled = !$("modelDataset").value;
+  }
+}
+
+async function activateModel(modelId) {
+  setNotice("modelMessage", "Verificando el artefacto, publicando el modelo y calculando predicciones…");
+  try {
+    const result = await api(`/models/${modelId}/activate`, { method: "POST", body: JSON.stringify({}) });
+    setNotice("modelMessage", `${result.version} publicado. Se generaron ${result.predicciones_generadas} predicciones para mascotas disponibles.`, "success");
+    await loadModels();
+    setNotice("modelMessage", `${result.version} publicado. Se generaron ${result.predicciones_generadas} predicciones para mascotas disponibles.`, "success");
+  } catch (cause) {
+    setNotice("modelMessage", cause.message, "error");
+  }
+}
+
+async function refreshPredictions(modelId) {
+  setNotice("modelMessage", "Calculando predicciones para la última captura completa…");
+  try {
+    const result = await api(`/models/${modelId}/refresh-predictions`, {
+      method: "POST", body: JSON.stringify({}),
+    });
+    setNotice("modelMessage", `Predicciones del modelo ${result.version} actualizadas: ${result.predicciones_generadas} perfiles disponibles.`, "success");
+    await loadModels();
+    setNotice("modelMessage", `Predicciones del modelo ${result.version} actualizadas: ${result.predicciones_generadas} perfiles disponibles.`, "success");
+  } catch (cause) {
+    setNotice("modelMessage", cause.message, "error");
+  }
+}
+
+async function loadCatalog() {
+  const body = $("catalogRows");
+  setNotice("catalogMessage");
+  $("catalogFilterCount").textContent = "Cargando catálogo…";
+  body.replaceChildren(modelTableMessage("Cargando catálogo…", 13));
+  try {
+    const result = await api("/models/predictions");
+    body.replaceChildren();
+    $("catalogLead").textContent = result.mensaje || (result.modelo_version
+      ? `Catálogo vigente · predicciones del modelo ${result.modelo_version}.`
+      : "Aún no hay un modelo publicado; los datos del catálogo se mostrarán sin predicciones.");
+    if (!result.items.length) {
+      body.append(modelTableMessage(result.mensaje || "Todavía no hay mascotas registradas en el catálogo.", 13));
+      $("catalogFilterCount").textContent = "Mostrando 0 de 0";
+      return;
+    }
+    result.items.forEach((pet) => {
+      const row = document.createElement("tr");
+      row.dataset.catalogPet = "true";
+      row.dataset.search = normalizeCatalogSearch(`${pet.sku} ${pet.nombre}`);
+      row.dataset.state = pet.estado_publicado;
+      row.dataset.priority = pet.nivel_prioridad?.toLocaleLowerCase("es-PE") || "sin_prioridad";
+      appendTextCell(row, pet.sku);
+      appendTextCell(row, pet.nombre);
+      appendTextCell(row, pet.especie);
+      appendTextCell(row, pet.sexo === "H" ? "Hembra" : pet.sexo === "M" ? "Macho" : pet.sexo);
+      appendTextCell(row, formatPetAge(pet.edad_meses, pet.edad_estimada));
+      appendTextCell(row, pet.tipo_pelaje);
+      appendTextCell(row, pet.tamano);
+      appendTextCell(row, pet.nivel_energia);
+      appendTextCell(row, pet.condicion_detalle || (pet.condicion_especial ? "Sí" : "Ninguna"), "wrap");
+      appendTextCell(row, String(pet.orden_publicacion), "num");
+      const state = document.createElement("td");
+      const stateTag = document.createElement("span");
+      stateTag.className = "tag neutral";
+      stateTag.textContent = ({
+        disponible: "Disponible", no_disponible: "No disponible", sin_publicar: "Sin publicar",
+      })[pet.estado_publicado] || pet.estado_publicado;
+      state.append(stateTag);
+      row.append(state);
+      const probability = document.createElement("td");
+      if (pet.probabilidad_adopcion === null || pet.probabilidad_adopcion === undefined) {
+        probability.textContent = pet.estado_publicado === "disponible" ? "Sin predicción" : "No aplica";
+      } else {
+        probability.textContent = formatMetric(pet.probabilidad_adopcion);
+        probability.title = `Estimación proxy calculada a partir de la salida del catálogo · ${result.modelo_version}`;
+      }
+      row.append(probability);
+      const priority = document.createElement("td");
+      if (pet.nivel_prioridad) {
+        const [label, cssClass] = pet.nivel_prioridad === "Alta" ? ["Alta", "alta"]
+          : pet.nivel_prioridad === "Media" ? ["Media", "media"] : ["Baja", "baja"];
+        const tag = document.createElement("span");
+        tag.className = `tag ${cssClass}`;
+        tag.textContent = label;
+        priority.append(tag);
+      } else priority.textContent = "—";
+      row.append(priority);
+      body.append(row);
+    });
+    applyCatalogFilters();
+  } catch (cause) {
+    body.replaceChildren(modelTableMessage("No se pudo cargar el catálogo.", 13));
+    $("catalogFilterCount").textContent = "Mostrando 0 de 0";
+    setNotice("catalogMessage", cause.message, "error");
+  }
+}
+
+function normalizeCatalogSearch(value) {
+  return value.toLocaleLowerCase("es-PE").normalize("NFD").replace(/\p{Diacritic}/gu, "");
+}
+
+function applyCatalogFilters() {
+  const body = $("catalogRows");
+  const rows = [...body.querySelectorAll("tr[data-catalog-pet]")];
+  const query = normalizeCatalogSearch($("catalogSearch").value.trim());
+  const selectedState = $("catalogStateFilter").value;
+  const selectedPriority = $("catalogPriorityFilter").value;
+  let visible = 0;
+
+  body.querySelector("#catalogNoMatches")?.remove();
+  rows.forEach((row) => {
+    const matches = (!query || row.dataset.search.includes(query))
+      && (!selectedState || row.dataset.state === selectedState)
+      && (!selectedPriority || row.dataset.priority === selectedPriority);
+    row.hidden = !matches;
+    if (matches) visible += 1;
+  });
+  $("catalogFilterCount").textContent = `Mostrando ${visible} de ${rows.length}`;
+  if (rows.length && !visible) {
+    const emptyRow = modelTableMessage("No hay mascotas que coincidan con los filtros.", 13);
+    emptyRow.id = "catalogNoMatches";
+    body.append(emptyRow);
+  }
+}
+
+function formatPetAge(months, estimated) {
+  if (months === null || months === undefined) return "No indicada";
+  const years = Math.floor(Number(months) / 12);
+  const remainingMonths = Number(months) % 12;
+  const age = years ? `${years} ${years === 1 ? "año" : "años"}${remainingMonths ? ` ${remainingMonths} meses` : ""}`
+    : `${remainingMonths} ${remainingMonths === 1 ? "mes" : "meses"}`;
+  return `${age}${estimated ? " (est.)" : ""}`;
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -525,6 +884,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   $("runCollectionButton").addEventListener("click", runCollection);
   $("generateDatasetButton").addEventListener("click", generateDataset);
   $("exportDatasetButton").addEventListener("click", exportDataset);
+  $("trainModelButton").addEventListener("click", trainModel);
+  $("catalogSearch").addEventListener("input", applyCatalogFilters);
+  $("catalogStateFilter").addEventListener("change", applyCatalogFilters);
+  $("catalogPriorityFilter").addEventListener("change", applyCatalogFilters);
   $("datasetFrom").addEventListener("change", () => {
     if ($("datasetTo").value <= $("datasetFrom").value) {
       const nextCapture = (window.datasetSources || []).find((capture) =>

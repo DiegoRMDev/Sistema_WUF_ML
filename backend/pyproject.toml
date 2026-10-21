@@ -20,6 +20,9 @@ dependencies = [
   "email-validator>=2.2,<3.0",
   "python-multipart>=0.0.9,<1.0",
   "slowapi>=0.1.9,<1.0",
+  "scikit-learn>=1.5,<2.0",
+  "pandas>=2.2,<4.0",
+  "joblib>=1.4,<2.0",
 ]
 
 [tool.ruff]

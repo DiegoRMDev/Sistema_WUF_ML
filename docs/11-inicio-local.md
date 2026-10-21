@@ -63,6 +63,12 @@ En la siguiente sección de configuración, conserva host, puerto, usuario y con
 5. Desde la sección Recolección importa, en este orden, los tres archivos de `data/capturas/escenario_hu02_v3/`: `captura_demo_2026-09-28.csv`, `captura_demo_2026-10-05.csv`, `captura_demo_2026-10-12.csv`.
 6. Comprueba que las tres ejecuciones terminen como Completada. Ve a Dataset histórico y pulsa Generar dataset. El resultado controlado esperado es 108 filas de cohorte: 66 Permanecen y 42 Salieron del catálogo.
 
+### Actualizar una base v2/v3 para HU03
+
+HU03 requiere columnas nuevas para versionar resultados y localizar/verificar artefactos. Haz primero una copia de seguridad. En pgAdmin conecta al nombre de base configurado en `backend/.env` (por ejemplo, `wuf_predict_v3`), abre Query Tool y ejecuta **una sola vez** `backend/upgrade_hu03_ml.sql`. No vuelvas a ejecutar el esquema completo ni ejecutes esta ampliación sobre la base antigua `wuf_predict`.
+
+La migración añade campos a `modelo_predictivo`, conserva los datos y crea una restricción para que exista como máximo un modelo vigente. Si el backend apunta a v2/v3 sin la migración, informará al iniciar que falta aplicarla. La base antigua puede seguir usándose para HU01, pero HU03 requiere el esquema v2/v3.
+
 Al cambiar de base en el `.env`, la aplicación deja de leer/escribir en v2 mientras esté apuntando a v3. Para volver, restaura el nombre de la base anterior y reinicia el backend. No compartas el `.env` ni subas contraseñas a Git.
 
 ### Base antigua `wuf_predict`
@@ -137,7 +143,7 @@ python -c "import secrets; print(secrets.token_urlsafe(48))"
 
 Copia el resultado como valor de `JWT_SECRET` en `.env`. No compartas ese secreto ni subas `.env` al repositorio. El `.gitignore` excluye `.env`.
 
-Para el primer inicio local, conserva el resto de valores del ejemplo. HU01 procesa el archivo CSV que el Analista elige y envía desde la interfaz; la API no escanea `data/capturas/`. Cada archivo debe mantener SKU estables y usar un nombre `captura_AAAA-MM-DD.csv` o `captura_demo_AAAA-MM-DD.csv`; el backend valida la fecha y deriva su semana ISO. `etiqueta_adoptado` no es necesaria; si aparece en un CSV heredado, se descarta y no alimenta HU02. Configura `CATALOG_CSV_MAX_BYTES` para el límite de tamaño.
+Para el primer inicio local, conserva el resto de valores del ejemplo. HU01 procesa el archivo CSV que el Analista elige y envía desde la interfaz; la API no escanea `data/capturas/`. Cada archivo debe mantener SKU estables y usar un nombre `captura_AAAA-MM-DD.csv` o `captura_demo_AAAA-MM-DD.csv`; el backend valida la fecha y deriva su semana ISO. `etiqueta_adoptado` no es necesaria; si aparece en un CSV heredado, se descarta y no alimenta HU02. Configura `CATALOG_CSV_MAX_BYTES` para el límite de tamaño. Para HU03, `MODEL_ARTIFACT_DIR` controla la carpeta privada de modelos y `MODEL_MIN_ACCURACY`, `MODEL_DEFAULT_TEST_SIZE`, `MODEL_DEFAULT_ESTIMATORS`, `MODEL_RANDOM_SEED`, `MODEL_PRIORITY_HIGH_MAX` y `MODEL_PRIORITY_MEDIUM_MAX` controlan el entrenamiento; sus valores demo están en `.env.example` y en [`14-hu03-entrenamiento-modelo.md`](14-hu03-entrenamiento-modelo.md).
 
 ## D. Crear el usuario de la aplicación
 

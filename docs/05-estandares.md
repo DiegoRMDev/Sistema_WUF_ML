@@ -6,7 +6,7 @@
 - **DRY:** centralizar reglas de roles, etiquetas, estados, errores, configuración y transformaciones. No duplicar límites de API y UI como si ambos fueran seguridad.
 - **KISS:** preferir un backend modular y un pipeline reproducible antes que microservicios, colas o abstracciones sin necesidad demostrada.
 - **YAGNI:** no construir administración genérica, integración CRM o personalización no requerida; resolver primero HU01-HU09.
-- Funciones pequeñas con nombres de dominio claros; tipos/anotaciones; docstrings para contratos no obvios; comentarios explican por qué, no repiten el código.
+- Funciones pequeñas con nombres de dominio claros; tipos/anotaciones; docstrings para contratos no obvios; comentarios explican el propósito del paso y su papel en el flujo, no repiten el código. En Machine Learning, comentar de forma didáctica el preprocesamiento, la partición, el entrenamiento, las métricas y el guardado/carga del artefacto.
 - Evitar estado global mutable, consultas ORM en controladores y reglas de negocio en JavaScript. Un módulo posee sus reglas y expone servicio/contrato.
 
 ## Validación y manejo de errores

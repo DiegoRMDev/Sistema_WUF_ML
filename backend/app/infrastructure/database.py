@@ -54,3 +54,29 @@ def verify_hu01_schema() -> None:
             "El esquema PostgreSQL no corresponde a HU01/HU02 v2. "
             "Verifica que ejecutaste el SQL correspondiente a la base configurada."
         )
+
+
+def verify_hu03_schema() -> None:
+    """Falla temprano si el esquema v2/v3 todavía no incluye persistencia HU03."""
+    required = {
+        ("modelo_predictivo", "estado"),
+        ("modelo_predictivo", "metadatos_entrenamiento"),
+        ("modelo_predictivo", "artefacto_ruta"),
+        ("modelo_predictivo", "artefacto_sha256"),
+        ("modelo_predictivo", "es_vigente"),
+        ("prediccion", "id_ejecucion"),
+    }
+    with engine.connect() as connection:
+        rows = connection.execute(text("""
+            SELECT table_name, column_name
+            FROM information_schema.columns
+            WHERE table_schema = current_schema()
+        """)).all()
+    available = {(row[0], row[1]) for row in rows}
+    # La base original sigue disponible para HU01; HU03 requiere el esquema v2/v3.
+    if ("ejecucion_recoleccion", "fecha_captura") not in available:
+        return
+    if not required.issubset(available):
+        raise RuntimeError(
+            "Falta aplicar backend/upgrade_hu03_ml.sql en la base v2/v3 antes de iniciar HU03."
+        )

@@ -42,4 +42,4 @@ La decisión acordada conserva la trazabilidad sin tratar una etiqueta incierta 
 
 Los CSV controlados actuales no contienen `sin_publicar` y se mantienen así para conservar el escenario acordado. La interfaz queda preparada para mostrar el motivo si aparece una fila indeterminada en una captura futura; el backend lo entrega en los detalles y lo incluye en el CSV.
 
-Antes del entrenamiento HU03 también se debe revisar el balance de clases, dividir entrenamiento/prueba por mascota o por tiempo para evitar fuga, y marcar métricas como demostrativas: la salida del catálogo es un proxy, no una adopción verificada.
+HU03 registra el balance de clases, separa por SKU para evitar fuga y presenta las métricas del escenario como demostrativas: la salida del catálogo es un proxy, no una adopción verificada. Consulta [`14-hu03-entrenamiento-modelo.md`](14-hu03-entrenamiento-modelo.md) para el proceso de entrenamiento.

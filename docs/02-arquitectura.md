@@ -41,7 +41,8 @@ El navegador es cliente sin secretos ni lógica autoritativa. La API valida la s
 | Catálogo | `GET /api/v1/pets`, `GET /api/v1/pets/{id}` | Tres roles |
 | Capturas | `POST /api/v1/collection-runs`, `GET /api/v1/collection-runs` | Analista |
 | Dataset | `GET /api/v1/datasets/sources`, `POST /api/v1/datasets`, `GET /api/v1/datasets`, `GET /api/v1/datasets/{id}`, `GET /api/v1/datasets/{id}/export` | Analista |
-| Modelos | `POST /api/v1/models/train`, `GET /api/v1/models`, `POST /api/v1/models/{id}/activate` | Analista |
+| Modelos | `GET /api/v1/models/options`, `POST /api/v1/models/train`, `GET /api/v1/models`, `POST /api/v1/models/{id}/activate`, `POST /api/v1/models/{id}/refresh-predictions` | Analista |
+| Predicciones de catálogo | `GET /api/v1/models/predictions` | Tres roles autenticados |
 | Alertas | `GET /api/v1/alerts`, `PATCH /api/v1/alerts/{id}` | Analista/Ayuda según acción |
 | Reportes | `POST /api/v1/reports`, `GET /api/v1/reports`, `GET /api/v1/reports/{id}/file` | Analista/Marketing |
 | Indicadores | `GET /api/v1/indicators?from=&to=` | Tres roles |
@@ -55,8 +56,8 @@ Respuestas de error estables, paginación y filtros tipados deben ser comunes. N
 2. El backend crea `ejecucion_recoleccion` y registra actor, fecha de captura tomada del nombre validado del archivo, fechas de procesamiento, semana ISO, estado, contadores, nombre de archivo y errores resumidos. Aplica límite de bytes y valida encabezados, tipos, dominios, longitudes y SKU duplicados. Una captura parcial se declara parcial y no se presenta como completa.
 3. Actualizar `mascota` como estado vigente y guardar una copia de todos los atributos en `snapshot_catalogo`, ligada a ejecución y mascota. Guardar las etiquetas en `snapshot_etiqueta_condicion`; la unicidad por ejecución/mascota hace idempotente el guardado.
 4. Construir dataset desde snapshots identificables y política de etiquetas versionada; persistir metadatos y hash/versión del CSV.
-5. Entrenar con pipeline de preprocesamiento y semilla reproducible. Evaluar holdout y validación adecuada; registrar parámetros, dataset, métricas y artefacto. Activar solo al cumplir criterios configurados.
-6. Generar predicciones con id de modelo, fecha y probabilidad calibrada/interpretada; la prioridad deriva de configuración versionada.
+5. HU03 prepara los atributos de la captura de referencia, excluye las etiquetas indeterminadas, separa perfiles por SKU y entrena un pipeline reproducible. Registra métricas, parámetros y motivos excluidos; el artefacto se conserva fuera del webroot y se verifica por SHA-256.
+6. Un modelo candidato solo puede publicarse si supera el umbral configurable de Accuracy. La publicación es explícita; calcula predicciones para mascotas disponibles de la última captura completa y registra también el `id_ejecucion` fuente. Tras una captura nueva, el Analista puede actualizar predicciones con el modelo vigente.
 7. Evaluar consistencia, crear alertas idempotentes; permitir atención y auditoría.
 8. Reportes y dashboard se construyen desde datos persistidos y exponen periodo, fecha de cálculo y versión/regla usada.
 
@@ -101,11 +102,11 @@ WUF_PREDICT/
 
 ### Estructura que existe ahora
 
-Actualmente hay `docs/`, `prototipo/`, `frontend/public/`, `backend/app/` (api, core, domain, services e infrastructure), `backend/scripts/`, `backend/tests/`, los scripts SQL y `.gitignore`. Los archivos HU02 se organizan en `backend/app/domain/dataset.py`, `backend/app/services/dataset_service.py`, `backend/app/infrastructure/dataset_repository.py` y `backend/app/api/v1/datasets.py`; la interfaz dinámica está en `frontend/public/`. Los CSV controlados se guardan en `data/capturas/escenario_hu02_v3/`. `frontend/src/`, `backend/migrations/`, `artifacts/`, `scripts/` en la raíz y `README.md` raíz siguen siendo estructura propuesta para etapas posteriores. El backend no consulta WUF ni escanea automáticamente la carpeta de capturas.
+Actualmente hay `docs/`, `prototipo/`, `frontend/public/`, `backend/app/` (api, core, domain, services e infrastructure), `backend/scripts/`, `backend/tests/`, SQL de esquemas/migraciones y `.gitignore`. HU02 se organiza en `backend/app/domain/dataset.py`, `backend/app/services/dataset_service.py`, `backend/app/infrastructure/dataset_repository.py` y `backend/app/api/v1/datasets.py`. HU03 usa `model_training.py`, `model_service.py`, `model_repository.py`, `model_artifact_storage.py` y `api/v1/models.py`; el frontend conserva la estructura visual bajo `frontend/public/`. Los artefactos entrenados se guardan en la carpeta privada `artifacts/models/` (ignorada por Git). Los CSV controlados se guardan en `data/capturas/`. `frontend/src/`, `backend/migrations/`, `scripts/` en la raíz y `README.md` raíz siguen siendo estructura propuesta para etapas posteriores. El backend no consulta WUF ni escanea automáticamente la carpeta de capturas.
 
-## Esquema objetivo v2/v3
+## Esquema v2/v3 para HU02, HU03 y el prototipo
 
-Para HU02 se preparó [`../backend/schema_wuf_predict_v2.sql`](../backend/schema_wuf_predict_v2.sql), derivado del diccionario físico original. Se puede ejecutar en una base vacía `wuf_predict_v2` o `wuf_predict_v3`; para la prueba aislada se usa v3. Añade fecha de captura separada de la importación y relaciones versionadas entre dataset, ejecuciones y snapshots. El objetivo de etiqueta se almacena en los detalles del dataset (`permanece`, `salio_catalogo`, `indeterminada`), mientras el estado observado permanece en cada snapshot. Este SQL no migra ni borra bases existentes.
+Para HU02 se preparó [`../backend/schema_wuf_predict_v2.sql`](../backend/schema_wuf_predict_v2.sql), derivado del diccionario físico original. Se puede ejecutar en una base vacía `wuf_predict_v2` o `wuf_predict_v3`; para la prueba aislada se usa v3. Añade fecha de captura separada de la importación y relaciones versionadas entre dataset, ejecuciones y snapshots. HU03 añade persistencia de experimentos y predicciones; para una base v2/v3 existente se aplica [`../backend/upgrade_hu03_ml.sql`](../backend/upgrade_hu03_ml.sql). El SQL completo no migra ni borra bases existentes.
 
 El backend de HU01 valida la fecha desde el nombre del archivo, y el guardado comprueba mascota/SKU/snapshot/ejecución. HU02 requiere el esquema v2 completo, genera la cohorte de mascotas disponibles al inicio y persiste snapshots, ejecuciones fuente, etiquetas y hash. Consulta [`13-hu02-dataset-historico.md`](13-hu02-dataset-historico.md).
 

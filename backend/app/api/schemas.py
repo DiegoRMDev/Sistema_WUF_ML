@@ -86,3 +86,14 @@ class DatasetCreateRequest(BaseModel):
         if self.fecha_hasta <= self.fecha_desde:
             raise ValueError("La fecha final debe ser posterior a la inicial.")
         return self
+
+
+class ModelTrainingRequest(BaseModel):
+    """Parámetros acotados que el Analista puede elegir para HU03."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id_dataset: int = Field(gt=0)
+    proporcion_prueba: float = Field(ge=0.1, le=0.4)
+    cantidad_arboles: int = Field(ge=50, le=1000)
+    profundidad_maxima: int | None = Field(default=None, ge=2, le=50)

@@ -231,11 +231,32 @@ CREATE TABLE modelo_predictivo (
     recall_score DECIMAL(5,4) NOT NULL,
     f1_score DECIMAL(5,4) NOT NULL,
     fecha_entrenamiento TIMESTAMP NOT NULL,
+    estado VARCHAR(20) NOT NULL DEFAULT 'no_publicable',
+    metadatos_entrenamiento JSONB NOT NULL DEFAULT '{}'::jsonb,
+    clase_positiva VARCHAR(30) NOT NULL DEFAULT 'salio_catalogo',
+    nro_registros_entrenamiento INTEGER NOT NULL DEFAULT 0,
+    nro_registros_prueba INTEGER NOT NULL DEFAULT 0,
+    nro_registros_excluidos INTEGER NOT NULL DEFAULT 0,
+    umbral_accuracy DECIMAL(5,4) NOT NULL DEFAULT 0.7500,
+    matriz_confusion JSONB NOT NULL DEFAULT '[]'::jsonb,
+    importancia_variables JSONB NOT NULL DEFAULT '[]'::jsonb,
+    artefacto_ruta VARCHAR(255),
+    artefacto_sha256 VARCHAR(64),
+    es_vigente BOOLEAN NOT NULL DEFAULT FALSE,
     CONSTRAINT ck_modelo_metricas CHECK (
         accuracy_score BETWEEN 0 AND 1 AND precision_score BETWEEN 0 AND 1
         AND recall_score BETWEEN 0 AND 1 AND f1_score BETWEEN 0 AND 1
-    )
+    ),
+    CONSTRAINT ck_modelo_estado CHECK (estado IN ('no_publicable', 'publicable', 'publicado', 'vigente')),
+    CONSTRAINT ck_modelo_conteos CHECK (
+        nro_registros_entrenamiento >= 0 AND nro_registros_prueba >= 0
+        AND nro_registros_excluidos >= 0 AND umbral_accuracy BETWEEN 0 AND 1
+    ),
+    CONSTRAINT ck_modelo_sha256 CHECK (artefacto_sha256 IS NULL OR artefacto_sha256 ~ '^[0-9a-f]{64}$')
 );
+
+CREATE UNIQUE INDEX uq_modelo_predictivo_vigente
+    ON modelo_predictivo (es_vigente) WHERE es_vigente = TRUE;
 
 CREATE TABLE reporte_priorizacion (
     id_reporte SERIAL PRIMARY KEY,
@@ -249,6 +270,7 @@ CREATE TABLE prediccion (
     id_prediccion SERIAL PRIMARY KEY,
     id_modelo INTEGER NOT NULL REFERENCES modelo_predictivo (id_modelo),
     id_mascota INTEGER NOT NULL REFERENCES mascota (id_mascota),
+    id_ejecucion INTEGER NULL REFERENCES ejecucion_recoleccion (id_ejecucion),
     id_reporte INTEGER NULL REFERENCES reporte_priorizacion (id_reporte),
     probabilidad_adopcion DECIMAL(5,4) NOT NULL CHECK (probabilidad_adopcion BETWEEN 0 AND 1),
     nivel_prioridad VARCHAR(10) NOT NULL,

@@ -219,7 +219,7 @@ El esquema se ajusta al diccionario; estos puntos describen capacidades que el d
 8. **Identidad/idempotencia:** `UNIQUE (sku)` identifica una mascota entre ejecuciones y `UNIQUE (id_ejecucion, id_mascota)` impide duplicarla dentro de una captura. Los CSV deben conservar el SKU para el mismo animal y no reutilizarlo para otro. Cada nombre de archivo se consume una vez. La migración CSV crea el índice único; si hay SKU duplicados existentes, hay que resolverlos antes.
 9. **Ejecuciones de recolección:** HU01 puede registrar tipo, inicio/fin, semana, conteos, estado, error y usuario iniciador. “Vigente” se deriva de la última ejecución completada, no se almacena como estado.
 10. **Importación CSV:** el Analista selecciona cada archivo y lo envía manualmente. Un archivo exitoso o parcial no se puede repetir con el mismo nombre; uno fallido se puede corregir y reintentar.
-11. **Artefactos y parámetros ML:** `modelo_predictivo` registra algoritmo, versión, métricas y fecha, pero no ubicación del archivo entrenado, parámetros, semilla, partición ni cuál modelo está activo.
+11. **Artefactos y parámetros ML:** el diccionario original no incluye la referencia del archivo entrenado, parámetros, semilla, partición ni el modelo vigente. La extensión HU03 descrita a continuación agrega estos metadatos sin eliminar las columnas académicas originales.
 12. **Datos personales:** `adoptante` contiene nombre, email y teléfono. El acceso debe limitarse y estos datos no deben incluirse como variables del modelo.
 
 El archivo `schema.sql` crea el modelo físico documentado y las extensiones de HU01 para una instalación nueva del esquema anterior. No incluye datos semilla ni capturas CSV.
@@ -237,6 +237,22 @@ Cambios del diseño v2:
 - `dataset_detalle` mantiene una fila por mascota y dataset, vincula snapshots de referencia/resultado y guarda la etiqueta derivada. La clase `salio_catalogo` puede tener snapshot final con estado `no_disponible`, como muestra el prototipo, o no tener snapshot si la mascota falta en una captura completa; en ambos casos se registra la ejecución de resultado. Si no hay evidencia suficiente, la clase es `indeterminada`.
 - HU02 conserva también las filas `indeterminada` y su `motivo_indeterminado` en el dataset versionado y en el CSV de auditoría. HU03 debe filtrarlas al cargar los datos para entrenamiento; el archivo original no se modifica.
 - `dataset_historico` registra rango temporal, versión de regla, procedencia y hash opcional del CSV generado. Los datasets derivados del catálogo se marcan `derivada_catalogo`; esto no significa adopción verificada.
+
+### Extensión de persistencia para HU03
+
+El esquema v2/v3 y `modelo_predictivo` se amplían con [`../backend/upgrade_hu03_ml.sql`](../backend/upgrade_hu03_ml.sql). También se incluyen las columnas en el esquema completo para una instalación nueva. La ampliación conserva los campos del diccionario académico y añade:
+
+| Campo | Propósito |
+|---|---|
+| `estado`, `es_vigente` | Distinguir modelos no publicables, candidatos, publicados y el modelo activo. Solo puede haber un modelo vigente. |
+| `metadatos_entrenamiento` | Parámetros, semilla, partición, conteo de clases, exclusiones y versiones de librerías. |
+| `clase_positiva`, `nro_registros_entrenamiento`, `nro_registros_prueba`, `nro_registros_excluidos`, `umbral_accuracy` | Explicar qué se evaluó y con qué umbral. |
+| `matriz_confusion`, `importancia_variables` | Conservar resultados que la interfaz muestra para revisión. |
+| `artefacto_ruta`, `artefacto_sha256` | Referenciar por nombre generado el archivo privado y comprobar su integridad antes de cargarlo. |
+
+Además, HU03 agrega `prediccion.id_ejecucion` como relación opcional a `ejecucion_recoleccion`. Permite identificar la captura exacta cuyos atributos recibieron predicción y evita mostrar como vigente un resultado calculado antes de una captura posterior.
+
+El artefacto se guarda en `MODEL_ARTIFACT_DIR`, fuera de `frontend/public/`; el API nunca revela una ruta absoluta ni acepta archivos de modelo subidos por el usuario. `prediccion.probabilidad_adopcion` guarda la estimación mostrada en pantalla; para HU03 su clase objetivo efectiva es `salio_catalogo`, por lo que es un proxy metodológico y no una adopción verificada.
 
 ### Regla funcional propuesta a partir del avance original
 

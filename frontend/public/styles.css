@@ -45,6 +45,17 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 input,select{font-family:inherit;font-size:13px;padding:8px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);color:var(--ink);width:100%;}
 label{display:block;font-size:12.5px;color:var(--ink-muted);margin-bottom:5px;}
 .field{margin-bottom:15px;}
+.model-form{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;}
+.model-form .field{min-width:0;}
+.notice{margin:10px 0;padding:10px 12px;border-radius:var(--radius-sm);background:var(--surface-2);color:var(--ink-muted);font-size:12px;}
+.notice[hidden]{display:none;}
+#modelThreshold{margin:12px 0 16px;}
+#view-entrenamiento .toolbar{margin-top:2px;}
+#modelMessage[data-state="error"],#catalogMessage[data-state="error"]{color:var(--baja);}
+#modelMessage[data-state="success"]{color:var(--alta);}
+#modelImportance>p{grid-column:1/-1;}
+.model-actions{display:flex;align-items:center;flex-wrap:wrap;gap:6px;min-width:190px;}
+.model-actions button{white-space:nowrap;}
 
 table{width:100%;border-collapse:collapse;font-size:12.3px;}
 th{text-align:left;font-weight:500;color:var(--ink-muted);padding:8px 8px;border-bottom:1px solid var(--border);white-space:nowrap;background:var(--surface);position:sticky;top:0;}
@@ -65,8 +76,19 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;}
 .dataset-filters label{display:inline;flex:0 0 auto;width:auto;white-space:nowrap;}
 .dataset-filters input{width:min(300px,100%);}
 .dataset-filters select{width:180px;min-width:150px;}
+.catalog-filters{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin:0 0 12px;}
+.catalog-filters label{display:inline;flex:0 0 auto;width:auto;white-space:nowrap;margin:0;font-size:12px;}
+.catalog-filters input,.catalog-filters select{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 10px;min-width:0;}
+.catalog-filters input{width:min(270px,100%);}
+.catalog-filters select{width:155px;}
+#view-catalogo .card.tablewrap{max-height:65vh;overflow:auto;scrollbar-gutter:stable;scrollbar-width:thin;scrollbar-color:var(--ink-faint) var(--surface-2);}
+#view-catalogo .card.tablewrap::-webkit-scrollbar{width:10px;height:10px;}
+#view-catalogo .card.tablewrap::-webkit-scrollbar-track{background:var(--surface-2);border-radius:8px;}
+#view-catalogo .card.tablewrap::-webkit-scrollbar-thumb{background:var(--ink-faint);border:2px solid var(--surface-2);border-radius:8px;}
+#view-catalogo .tablewrap table{min-width:1120px;}
+#catalogRows tr[hidden]{display:none;}
 @media(max-width:850px){.dataset-period{grid-template-columns:1fr 1fr;}.dataset-period #datasetHorizon{grid-column:1/-1;}}
-@media(max-width:560px){.dataset-period{grid-template-columns:1fr;}.dataset-period #datasetHorizon{grid-column:auto;}.dataset-filters{align-items:stretch;}.dataset-filters label{width:100%;}.dataset-filters input,.dataset-filters select{width:100%;}}
+@media(max-width:560px){.dataset-period{grid-template-columns:1fr;}.dataset-period #datasetHorizon{grid-column:auto;}.dataset-filters{align-items:stretch;}.dataset-filters label{width:100%;}.dataset-filters input,.dataset-filters select{width:100%;}.catalog-filters{display:grid;grid-template-columns:1fr;gap:6px;}.catalog-filters input,.catalog-filters select{width:100%;}.catalog-filters #catalogFilterCount{margin-top:3px;}}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:16px;}
 .card.pad{padding:16px 18px;}
 .card.pad.chart{padding:16px 18px 10px;}
@@ -175,11 +197,13 @@ pre.rules{font-size:11.5px;line-height:1.45;background:var(--surface-2);padding:
   .topbar{display:flex;}
   .main{padding:16px 14px;}
   .stats,.two,.settings-grid{grid-template-columns:1fr;}
+  .model-form{grid-template-columns:1fr 1fr;}
   .metricgrid{grid-template-columns:1fr 1fr;}
   .imp{grid-template-columns:120px 1fr 44px;}
 }
 
 @media(max-width:560px){
+  .model-form{grid-template-columns:1fr;gap:0;}
   .dataset-filters{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 9px;}
   .dataset-filters label{width:auto;}
   .dataset-filters input,.dataset-filters select{grid-column:2;width:100%;}

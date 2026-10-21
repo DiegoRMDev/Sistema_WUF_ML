@@ -1,6 +1,8 @@
 """Configuración tipada cargada desde el entorno."""
 
 from functools import lru_cache
+from pathlib import Path
+
 from pydantic import SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -17,6 +19,13 @@ class Settings(BaseSettings):
     api_page_size_max: int = 100
     api_offset_max: int = 100_000
     catalog_csv_max_bytes: int = 20_000_000
+    model_artifact_dir: Path = Path("../artifacts/models")
+    model_min_accuracy: float = 0.75
+    model_default_test_size: float = 0.2
+    model_default_estimators: int = 300
+    model_random_seed: int = 42
+    model_priority_high_max: float = 0.35
+    model_priority_medium_max: float = 0.65
     cors_origins: str = "http://localhost:5500,http://127.0.0.1:5500"
 
     model_config = SettingsConfigDict(
@@ -82,6 +91,33 @@ class Settings(BaseSettings):
         if not 1024 <= value <= 100_000_000:
             raise ValueError("CATALOG_CSV_MAX_BYTES debe estar entre 1024 y 100000000.")
         return value
+
+    @field_validator("model_min_accuracy", "model_priority_high_max", "model_priority_medium_max")
+    @classmethod
+    def validate_model_probability(cls, value: float) -> float:
+        if not 0 <= value <= 1:
+            raise ValueError("Los umbrales del modelo deben estar entre 0 y 1.")
+        return value
+
+    @field_validator("model_default_test_size")
+    @classmethod
+    def validate_model_test_size(cls, value: float) -> float:
+        if not 0.1 <= value <= 0.4:
+            raise ValueError("MODEL_DEFAULT_TEST_SIZE debe estar entre 0.10 y 0.40.")
+        return value
+
+    @field_validator("model_default_estimators")
+    @classmethod
+    def validate_model_estimators(cls, value: int) -> int:
+        if not 50 <= value <= 1000:
+            raise ValueError("MODEL_DEFAULT_ESTIMATORS debe estar entre 50 y 1000.")
+        return value
+
+    @model_validator(mode="after")
+    def validate_priority_bounds(self) -> "Settings":
+        if self.model_priority_high_max >= self.model_priority_medium_max:
+            raise ValueError("El límite de prioridad alta debe ser menor al límite medio.")
+        return self
 
     @property
     def allowed_origins(self) -> list[str]:

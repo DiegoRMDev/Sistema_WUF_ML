@@ -44,14 +44,19 @@ Las historias son módulos funcionales desplegables por sprint. Las tareas trans
 
 ## HU03 - Entrenamiento, evaluación y predicción (S2, alta)
 
-- Entrenar Random Forest usando pipeline, semilla y configuración validada. Partición por tiempo o grupo si hay múltiples observaciones de la misma mascota, para evitar fuga; documentar comparación con split 80/20 del avance.
-- Al preparar el entrenamiento, excluir `indeterminada` y registrar el conteo/motivos excluidos. No alterar el CSV completo exportado por HU02.
-- Evaluar Accuracy, Precision, Recall y F1 para clase positiva inequívoca; también soporte por clase y matriz de confusión para interpretar desbalance.
-- Guardar experimento y artefacto de forma versionada y verificar integridad al cargar. El origen del dataset debe distinguir datos sintéticos de demostración, etiquetas derivadas del catálogo y adopciones verificadas. Los modelos entrenados con proxy de salida del catálogo son experimentales y no deben presentarse como modelos validados para adopciones reales ni alimentar KPI reales.
-- Alinear la salida con la interfaz del prototipo (probabilidad de permanencia) y RF06 (probabilidad de adopción): documentar clase positiva, conversión/complemento, periodo objetivo, calibración y prioridad antes de implementar HU03. Baja probabilidad de adopción debe recibir prioridad de difusión alta según OE1.
-- UI: dataset y parámetros seleccionables; métricas históricas; modelo vigente; errores de entrenamiento y explicación global de variables con límites de interpretación.
+- Entrena Random Forest desde una versión seleccionada de HU02 con pipeline de imputación/codificación, semilla reproducible y partición configurable por grupos SKU. Los atributos son los del snapshot de referencia; estados posteriores, SKU y datos identificadores no son variables predictoras.
+- Al preparar las filas, excluye `indeterminada`, conserva el CSV auditable sin modificar y registra cantidad/motivos excluidos. El entrenamiento requiere ambas clases y suficientes ejemplos.
+- Evalúa Accuracy, Precision, Recall y F1 sobre prueba, además de matriz de confusión, soporte y conteo por clase. La importancia de variables se presenta como explicación global, no causal.
+- El texto visible es **“Probabilidad estimada de adopción”**. Metodológicamente el valor se calcula para la clase `salio_catalogo` de HU02; no es adopción confirmada ni probabilidad calibrada. La regla de prioridad usa bandas configurables y asigna mayor prioridad cuando la estimación es baja.
+- Guarda parámetros, semilla, dataset, métricas, versión de librerías, matriz, importancia, artefacto Joblib y su SHA-256. Un modelo debajo del umbral de Accuracy queda no publicable. El Analista publica explícitamente un candidato válido; la activación verifica el hash y genera predicciones para mascotas disponibles ligadas a la ejecución. Tras importar una captura nueva puede actualizar las predicciones del modelo vigente.
+- Las métricas de los CSV controlados son demostrativas y no deben presentarse como validadas para adopciones reales ni alimentar KPI reales.
+- La interfaz sigue el prototipo: selección de dataset y partición/hiperparámetros, métricas, matriz, importancia, modelo vigente e historial de versiones. El Catálogo consulta predicciones vigentes de la API; no muestra predicciones ilustrativas estáticas.
 
-**Aceptación base:** cada modelo publicado puede reproducirse desde dataset/parámetros/artefacto; no se activa con métrica inferior al umbral; la predicción identifica modelo y fecha; entrenamiento largo se maneja como job, no petición HTTP bloqueante.
+**Implementación HU03:** ver [`14-hu03-entrenamiento-modelo.md`](14-hu03-entrenamiento-modelo.md). Antes de iniciar el backend sobre una base v2/v3 existente, ejecutar una vez `backend/upgrade_hu03_ml.sql` y reinstalar las dependencias de `backend/pyproject.toml` en `.venv`.
+
+**Estado actual:** backend y frontend integrados y ejecutados localmente por el Analista. Se probaron entrenamientos repetidos, consulta de versiones, publicación explícita, actualización de predicciones y Catálogo; la captura final 180→165→190 coincide con sus CSV y las 86 mascotas disponibles tienen predicción. La migración HU03 y las dependencias ya fueron aplicadas en la base local usada para la demostración. Los CSV más realistas para entrenamiento (nombres verosímiles y variables menos artificialmente asociadas a la etiqueta) quedan pendientes de revisión; ver [`14-hu03-entrenamiento-modelo.md`](14-hu03-entrenamiento-modelo.md).
+
+**Aceptación base:** cada modelo publicado puede reproducirse desde dataset/parámetros/artefacto; no se activa con métrica inferior al umbral; la predicción identifica modelo y fecha. El endpoint de entrenamiento actual es síncrono; procesar entrenamientos largos como job queda como trabajo de escalabilidad si el volumen futuro hace que la petición pueda bloquearse. La prueba actual es pequeña y no necesita ese mecanismo.
 
 ## HU04 - Riesgo de consistencia (S2, alta)
 
