@@ -1,4 +1,5 @@
--- Extiende el esquema v2/v3 para registrar experimentos HU03 y activar artefactos íntegros.
+-- Migración para esquemas v2/v3 anteriores que aún no incluyen las estructuras HU03.
+-- No es necesaria para una base nueva creada desde schema_wuf_predict_v4.sql.
 BEGIN;
 
 ALTER TABLE modelo_predictivo

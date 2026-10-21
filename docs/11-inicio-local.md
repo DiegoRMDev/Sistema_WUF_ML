@@ -8,6 +8,7 @@ Esta guía permite que otra persona prepare el entorno local y ejecute el backen
 - Python 3.12 o 3.13. Comprueba las versiones disponibles con `py --list`.
 - PostgreSQL 16 instalado y en ejecución.
 - Para HU01 se puede continuar en `wuf_predict_v2`. Para la prueba aislada de HU02, crea `wuf_predict_v3` y usa los CSV de `data/capturas/escenario_hu02_v3/`; conserva las bases anteriores como respaldo.
+- Para preparar la base limpia del escenario actualizado, crea `wuf_predict_v4` desde pgAdmin y ejecuta `backend/schema_wuf_predict_v4.sql`. El `.env` local se mantiene en `wuf_predict_v3_prueba3` hasta que decidas cambiarlo a la nueva base.
 - Git, si se descargó el proyecto desde GitHub.
 
 > Los comandos no requieren instalar herramientas pagadas. Las dependencias de Python se declaran en `backend/pyproject.toml`.
@@ -63,9 +64,13 @@ En la siguiente sección de configuración, conserva host, puerto, usuario y con
 5. Desde la sección Recolección importa, en este orden, los tres archivos de `data/capturas/escenario_hu02_v3/`: `captura_demo_2026-09-28.csv`, `captura_demo_2026-10-05.csv`, `captura_demo_2026-10-12.csv`.
 6. Comprueba que las tres ejecuciones terminen como Completada. Ve a Dataset histórico y pulsa Generar dataset. El resultado controlado esperado es 108 filas de cohorte: 66 Permanecen y 42 Salieron del catálogo.
 
+### Base limpia v4 para HU02/HU03
+
+Para usar la variante actualizada de `data/capturas/escenario_hu02_variable_v3/`, crea `wuf_predict_v4` en pgAdmin y ejecuta [`../backend/schema_wuf_predict_v4.sql`](../backend/schema_wuf_predict_v4.sql) en su Query Tool. El archivo contiene un esquema único con las extensiones HU03 integradas directamente. No ejecutes `upgrade_hu03_ml.sql` después; esa migración queda para bases v2/v3 antiguas. Después, apunta `DATABASE_URL` a `wuf_predict_v4`, reinicia el backend, crea el usuario Analista e importa las tres capturas cronológicamente antes de generar el dataset y entrenar.
+
 ### Actualizar una base v2/v3 para HU03
 
-HU03 requiere columnas nuevas para versionar resultados y localizar/verificar artefactos. Haz primero una copia de seguridad. En pgAdmin conecta al nombre de base configurado en `backend/.env` (por ejemplo, `wuf_predict_v3`), abre Query Tool y ejecuta **una sola vez** `backend/upgrade_hu03_ml.sql`. No vuelvas a ejecutar el esquema completo ni ejecutes esta ampliación sobre la base antigua `wuf_predict`.
+HU03 requiere columnas para versionar resultados y localizar/verificar artefactos. En una base v2/v3 existente, haz primero una copia de seguridad y ejecuta **una sola vez** `backend/upgrade_hu03_ml.sql`. En una base nueva, usa `backend/schema_wuf_predict_v2.sql` o `backend/schema_wuf_predict_v4.sql`; ambos contienen las estructuras HU03. `backend/upgrade_hu03_ml.sql` se reserva para actualizar bases v2/v3 antiguas.
 
 La migración añade campos a `modelo_predictivo`, conserva los datos y crea una restricción para que exista como máximo un modelo vigente. Si el backend apunta a v2/v3 sin la migración, informará al iniciar que falta aplicarla. La base antigua puede seguir usándose para HU01, pero HU03 requiere el esquema v2/v3.
 

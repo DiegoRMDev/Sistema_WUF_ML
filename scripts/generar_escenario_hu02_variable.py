@@ -1,11 +1,11 @@
-"""Genera de forma reproducible tres CSV sintéticos para probar HU02.
+"""Genera CSV sintéticos y reproducibles para las pruebas HU02 y HU03.
 
-El escenario parte de la captura estable de 180 perfiles y simula altas,
-salidas por ausencia y cambios explícitos de estado entre semanas.
-No consulta WUF ni modifica los CSV usados en las pruebas anteriores.
+El escenario conserva el flujo semanal 180→165→190. Las relaciones entre
+atributos y salida del catálogo son supuestos demostrativos, no datos reales.
 """
 
 import csv
+import random
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -14,10 +14,22 @@ ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "data/capturas/escenario_hu02_v3/captura_demo_2026-09-28.csv"
 OUTPUT = ROOT / "data/capturas/escenario_hu02_variable_v3"
 CAPTURE_DATES = ("2026-09-28", "2026-10-05", "2026-10-12")
+SEED = 20261021
+
+PET_NAMES = (
+    "Moka", "Nala", "Bruno", "Kira", "Toby", "Canela", "Milo", "Frida",
+    "Simba", "Chaska", "Pelusa", "Coco", "Mora", "Rocky", "Kiara", "Pancho",
+    "Lila", "Thor", "Nina", "Rayo", "Tita", "Balú", "Pipo", "Alma", "Boni",
+    "Duna", "Félix", "Gala", "Hachi", "Inti", "Jazmín", "Kiko", "Lola", "Manchitas",
+    "Nube", "Oreo", "Peca", "Quilla", "Rufus", "Salem", "Tango", "Uma", "Vainilla",
+    "Wasi", "Yuki", "Zuri",
+)
+DOG_BREEDS = ("Mestizo", "Labrador", "Schnauzer", "Terrier", "Poodle", "Pastor", "Bulldog", "Cocker")
+CAT_BREEDS = ("Mestizo", "Doméstico pelo corto", "Doméstico pelo largo", "Siamés", "Persa", "Angora")
 
 
 def read_capture(path: Path) -> tuple[list[str], list[dict[str, str]]]:
-    """Lee el CSV base conservando el orden original de columnas."""
+    """Lee los encabezados y perfiles de la captura inicial."""
     with path.open("r", encoding="utf-8-sig", newline="") as file:
         reader = csv.DictReader(file)
         if not reader.fieldnames:
@@ -26,9 +38,8 @@ def read_capture(path: Path) -> tuple[list[str], list[dict[str, str]]]:
 
 
 def write_capture(headers: list[str], rows: list[dict[str, str]], capture_date: str) -> None:
-    """Escribe una captura completa con nombre/fecha aceptados por HU01."""
+    """Guarda la captura con su orden de publicación consecutivo."""
     output_path = OUTPUT / f"captura_demo_{capture_date}.csv"
-    # El orden de publicación representa la posición visible de cada perfil.
     for position, row in enumerate(rows, start=1):
         row["orden_publicacion"] = str(len(rows) - position + 1)
     with output_path.open("w", encoding="utf-8", newline="") as file:
@@ -37,77 +48,149 @@ def write_capture(headers: list[str], rows: list[dict[str, str]], capture_date: 
         writer.writerows(rows)
 
 
+def enrich_baseline(rows: list[dict[str, str]], rng: random.Random) -> None:
+    """Varía atributos para romper el patrón artificial que seguía el SKU."""
+    for row in rows:
+        species = row["especie"]
+        row["raza"] = rng.choice(DOG_BREEDS if species == "perro" else CAT_BREEDS)
+        row["edad_meses"] = "" if rng.random() < 0.04 else str(rng.randint(1, 180))
+        row["edad_estimada"] = str(rng.random() < 0.30).lower() if row["edad_meses"] else "true"
+        if species == "gato":
+            row["tamano"] = rng.choices(("pequeno", "mediano"), weights=(0.72, 0.28))[0]
+        else:
+            row["tamano"] = rng.choices(("pequeno", "mediano", "grande"), weights=(0.32, 0.43, 0.25))[0]
+        row["tamano_estimado"] = str(rng.random() < 0.22).lower()
+        row["tipo_pelaje"] = rng.choice(("corto", "medio", "largo"))
+        row["nivel_energia"] = rng.choice(("bajo", "medio", "alto"))
+        row["condicion_especial"] = str(rng.random() < 0.16).lower()
+        row["condicion_detalle"] = (
+            rng.choice(("En tratamiento", "Movilidad reducida", "Requiere adaptación", "Condición crónica controlada"))
+            if row["condicion_especial"] == "true" else ""
+        )
+        row["descripcion"] = (
+            f"{row['nombre']} es un perfil sintético de demostración; "
+            "sus atributos fueron generados para probar el historial y el modelo."
+        )
+
+
+def adoption_proxy_score(row: dict[str, str], rng: random.Random) -> float:
+    """Calcula una propensión ilustrativa con ruido para evitar una regla perfecta.
+
+    En esta simulación, edad menor, tamaño pequeño y no tener condición especial
+    elevan moderadamente la posibilidad de salir del catálogo. No son conclusiones
+    causales ni se basan en resultados reales de adopción.
+    """
+    age = int(row["edad_meses"]) if row["edad_meses"] else 90
+    age_score = max(0.0, 1.0 - age / 180)
+    size_score = {"pequeno": 1.0, "mediano": 0.58, "grande": 0.16}[row["tamano"]]
+    special_score = 0.0 if row["condicion_especial"] == "true" else 1.0
+    # El ruido permite que perfiles con atributos semejantes tengan resultados distintos.
+    return 0.50 * age_score + 0.30 * size_score + 0.20 * special_score + rng.gauss(0, 0.08)
+
+
 def main() -> None:
-    """Construye el caso 180→165→190 con cambios deterministas y documentados."""
+    """Construye las tres capturas y mantiene los conteos y flujos de HU02."""
+    rng = random.Random(SEED)
     headers, baseline = read_capture(SOURCE)
     by_sku = {row["sku"]: row for row in baseline}
     if len(baseline) != 180 or len(by_sku) != len(baseline):
         raise ValueError("La captura base debe contener 180 perfiles con SKU únicos.")
 
-    available_skus = [row["sku"] for row in baseline if row["estado_publicado"] == "disponible"]
-    if len(available_skus) != 108:
-        raise ValueError("La captura base esperada contiene 108 perfiles disponibles.")
+    enrich_baseline(baseline, rng)
+    # Rompe el orden heredado del CSV fuente antes de asignar posición de catálogo.
+    rng.shuffle(baseline)
+    available = [row for row in baseline if row["estado_publicado"] == "disponible"]
+    initially_unavailable = [row for row in baseline if row["estado_publicado"] == "no_disponible"]
+    if len(available) != 108 or len(initially_unavailable) != 72:
+        raise ValueError("La captura base esperada contiene 108 disponibles y 72 no disponibles.")
 
-    # Semana 40: referencia íntegra, sin cambios frente al catálogo base.
-    week_43 = [dict(row) for row in baseline]
+    # Ordenamos por una señal sintética ruidosa, nunca por SKU u orden de publicación.
+    ranked = sorted(available, key=lambda row: adoption_proxy_score(row, rng), reverse=True)
+    early_exit = {row["sku"] for row in ranked[:10]}
+    exit_after_two = {row["sku"] for row in ranked[10:21]}
+    late_exit = {row["sku"] for row in ranked[21:42]}
+
     OUTPUT.mkdir(parents=True, exist_ok=True)
-    write_capture(headers, week_43, CAPTURE_DATES[0])
+    week_40 = [dict(row) for row in baseline]
+    write_capture(headers, week_40, CAPTURE_DATES[0])
 
-    # Semana 41: 15 perfiles que ya estaban no disponibles dejan de aparecer.
-    # Las 42 mascotas disponibles que saldrán del catálogo pasan primero a
-    # no_disponible, así no desaparecen directamente desde disponible.
-    initially_unavailable = [
-        row["sku"] for row in baseline if row["estado_publicado"] == "no_disponible"
-    ]
-    absent_before_followup = set(initially_unavailable[:15])
-    state_change_skus = set(available_skus[:21])
-    week_44 = [
-        dict(row) for row in baseline
-        if row["sku"] not in absent_before_followup
-    ]
-    for row in week_44:
-        if row["sku"] in state_change_skus:
+    # 15 mascotas ya no disponibles salen del catálogo; 21 de la cohorte cambian de estado.
+    absent_old = {row["sku"] for row in initially_unavailable[:15]}
+    week_41 = [dict(row) for row in baseline if row["sku"] not in absent_old]
+    for row in week_41:
+        if row["sku"] in early_exit | exit_after_two:
             row["estado_publicado"] = "no_disponible"
-    if len(week_44) != 165:
+    if len(week_41) != 165:
         raise ValueError("La segunda captura debe contener 165 perfiles.")
-    write_capture(headers, week_44, CAPTURE_DATES[1])
+    write_capture(headers, week_41, CAPTURE_DATES[1])
 
-    # Semana 42: 10 mascotas desaparecen luego de una semana no disponibles;
-    # 11 siguen no_disponible y otras 21 pasan a no_disponible recién ahora.
-    # Las 66 mascotas restantes siguen disponibles.
-    disappearing_skus = set(available_skus[:10])
-    week_45 = [dict(row) for row in week_44 if row["sku"] not in disappearing_skus]
-    final_state_change_skus = set(available_skus[21:42])
-    for row in week_45:
-        if row["sku"] in final_state_change_skus:
+    # Diez salidas desaparecen tras una semana no disponibles; 21 cambian en la última.
+    week_42 = [dict(row) for row in week_41 if row["sku"] not in early_exit]
+    for row in week_42:
+        if row["sku"] in late_exit:
             row["estado_publicado"] = "no_disponible"
 
-    new_profiles: list[dict[str, str]] = []
+    # Las altas reciben nombres y combinaciones de atributos plausibles, sin etiquetas genéricas.
+    names = list(PET_NAMES)
+    rng.shuffle(names)
     for offset in range(35):
-        new_sku = f"WUF{181 + offset:04d}"
-        # Se copian atributos válidos de perfiles demo y se identifican como altas sintéticas.
-        profile = dict(baseline[offset])
-        profile.update({
-            "sku": new_sku,
-            "nombre": f"Mascota demo {181 + offset}",
-            "descripcion": "Perfil sintético de demostración incorporado en la semana 42; no corresponde a una ficha real de WUF.",
-            "fecha_publicacion": (date.fromisoformat(CAPTURE_DATES[1]) + timedelta(days=offset % 7)).isoformat(),
-            "url_perfil": f"https://www.wuf.pe/adopta/{profile['especie']}/{new_sku.lower()}",
+        sku = f"WUF{181 + offset:04d}"
+        species = rng.choice(("perro", "perro", "gato"))
+        age = rng.randint(2, 180)
+        size = rng.choice(("pequeno", "mediano")) if species == "gato" else rng.choice(("pequeno", "mediano", "grande"))
+        special = rng.random() < 0.16
+        profile = {
+            "sku": sku,
+            "nombre": names[offset],
+            "especie": species,
+            "raza": rng.choice(DOG_BREEDS if species == "perro" else CAT_BREEDS),
+            "sexo": rng.choice(("M", "H")),
+            "edad_meses": str(age),
+            "edad_estimada": str(rng.random() < 0.30).lower(),
+            "tipo_pelaje": rng.choice(("corto", "medio", "largo")),
+            "tamano": size,
+            "tamano_estimado": str(rng.random() < 0.22).lower(),
+            "nivel_energia": rng.choice(("bajo", "medio", "alto")),
+            "condicion_especial": str(special).lower(),
+            "condicion_detalle": rng.choice(("En tratamiento", "Requiere adaptación")) if special else "",
+            "descripcion": f"{names[offset]} es parte de un perfil sintético de demostración.",
+            "orden_publicacion": "1",
             "estado_publicado": "disponible" if offset < 20 else "no_disponible",
-        })
-        new_profiles.append(profile)
-    week_45.extend(new_profiles)
-    if len(week_45) != 190:
+            "fecha_publicacion": (date.fromisoformat(CAPTURE_DATES[1]) + timedelta(days=offset % 7)).isoformat(),
+            "url_perfil": f"https://www.wuf.pe/adopta/{species}/{sku.lower()}",
+            "etiquetas": "",
+        }
+        week_42.append(profile)
+    if len(week_42) != 190:
         raise ValueError("La tercera captura debe contener 190 perfiles.")
-    write_capture(headers, week_45, CAPTURE_DATES[2])
 
-    counts = [
-        (capture_date, len(rows), sum(row["estado_publicado"] == "disponible" for row in rows),
-         sum(row["estado_publicado"] == "no_disponible" for row in rows))
-        for capture_date, rows in zip(CAPTURE_DATES, (week_43, week_44, week_45), strict=True)
+    # Valida cantidades y flujos antes de sobrescribir los CSV que se importan en HU01.
+    final_by_sku = {row["sku"]: row["estado_publicado"] for row in week_42}
+    week_41_by_sku = {row["sku"]: row["estado_publicado"] for row in week_41}
+    if (
+        len(early_exit) != 10 or len(exit_after_two) != 11 or len(late_exit) != 21
+        or len(early_exit | exit_after_two | late_exit) != 42
+        or any(sku in final_by_sku for sku in early_exit)
+        or any(week_41_by_sku[sku] != "no_disponible" or final_by_sku[sku] != "no_disponible" for sku in exit_after_two)
+        or any(week_41_by_sku[sku] != "disponible" or final_by_sku[sku] != "no_disponible" for sku in late_exit)
+    ):
+        raise ValueError("Las transiciones de la cohorte no coinciden con el escenario documentado.")
+    available_counts = [
+        sum(row["estado_publicado"] == "disponible" for row in capture)
+        for capture in (week_40, week_41, week_42)
     ]
-    for item in counts:
-        print(f"{item[0]}: {item[1]} perfiles, {item[2]} disponibles, {item[3]} no disponibles")
+    if available_counts != [108, 87, 86]:
+        raise ValueError("El conteo de perfiles disponibles no coincide con el escenario documentado.")
+    write_capture(headers, week_42, CAPTURE_DATES[2])
+
+    # Comprueba que las transiciones previstas continúan sin desapariciones abruptas.
+    states = [{row["sku"]: row["estado_publicado"] for row in capture} for capture in (week_40, week_41, week_42)]
+    if any(states[0][sku] != "disponible" or states[1][sku] != "no_disponible" for sku in early_exit):
+        raise ValueError("Flujo inesperado para las salidas tempranas.")
+    print("28/09/2026: 180 perfiles, 108 disponibles, 72 no disponibles")
+    print("05/10/2026: 165 perfiles, 87 disponibles, 78 no disponibles")
+    print("12/10/2026: 190 perfiles, 86 disponibles, 104 no disponibles")
+    print("Cohorte HU02: 66 permanecen y 42 salen del catálogo (10 + 11 + 21).")
 
 
 if __name__ == "__main__":

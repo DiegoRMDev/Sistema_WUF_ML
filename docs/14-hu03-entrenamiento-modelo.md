@@ -11,6 +11,7 @@ La interfaz conserva el término solicitado **“Probabilidad estimada de adopci
 - Recolección, Dataset Histórico y Entrenamiento se muestran solo al rol Analista. El frontend también bloquea la navegación directa a esas vistas; las rutas de lectura/escritura correspondientes verifican el rol en el backend.
 - `GET /api/v1/models/predictions` acepta a cualquier usuario autenticado porque alimenta la sección Catálogo, que se comparte con Marketing y Área de Ayuda. Este permiso no da acceso al historial ni a las operaciones de entrenamiento/publicación.
 - El historial ofrece **Ver** para consultar cualquier versión. Al entrenar, el panel de métricas, importancia y matriz cambia a la candidata recién creada; publicar sigue siendo una acción explícita.
+- La fecha de entrenamiento se conserva como hora de Perú (`America/Lima`): el backend fija esa zona al guardar y la incluye en la respuesta de la API, para que el navegador no interprete una hora local sin zona como UTC.
 - Catálogo consulta todos los perfiles del snapshot completo más reciente. El buscador por SKU/nombre y los filtros por estado/prioridad solo modifican las filas visibles; hay desplazamiento vertical y horizontal. La API relaciona las predicciones con esa ejecución y el modelo vigente.
 
 ## Validación local con el escenario controlado
@@ -19,17 +20,29 @@ En la prueba local de `escenario_hu02_variable_v3`, los conteos de PostgreSQL co
 
 El modelo vigente de esa prueba generó 86 predicciones, una por cada perfil disponible; no generó predicciones para perfiles no disponibles. Los atributos visibles de los 190 perfiles del snapshot final coincidieron con el CSV importado. Las altas incluidas en la última captura no se agregan retroactivamente a la cohorte inicial de HU02.
 
-Una ejecución de demostración con 100 árboles, profundidad máxima 10, 30 % para prueba y semilla 42 obtuvo Accuracy 97,0 %, Precision 100,0 %, Recall 92,3 %, F1 96,0 % y matriz `[[20, 0], [1, 12]]` (75 filas de entrenamiento y 33 de prueba). Son resultados reproducibles de este conjunto pequeño y sintético, no métricas esperadas para datos de WUF.
+## Escenario sintético HU02/HU03
 
-## Mejora pendiente de los CSV de demostración
+Se actualizaron los tres CSV de [`data/capturas/escenario_hu02_variable_v3/`](../data/capturas/escenario_hu02_variable_v3/README.md) y el generador [`scripts/generar_escenario_hu02_variable.py`](../scripts/generar_escenario_hu02_variable.py). Las altas tienen nombres plausibles y atributos variados; el generador preserva el escenario 180→165→190, la cohorte de 108 perfiles y sus 66/42 etiquetas, junto con las transiciones acordadas. El validador de HU01 aceptó las tres capturas sin rechazos.
 
-Antes de usar HU03 como una demostración representativa, revisar los CSV de [`data/capturas/escenario_hu02_variable_v3/`](../data/capturas/escenario_hu02_variable_v3/README.md) y su generador [`scripts/generar_escenario_hu02_variable.py`](../scripts/generar_escenario_hu02_variable.py):
+Para que la clase `salio_catalogo` permita explicar el aprendizaje, los datos de demostración usan una asociación sintética moderada con edad, tamaño y condición especial, más variación aleatoria. La regla no usa raza, sexo, pelaje ni energía. No es evidencia empírica de WUF: la salida del catálogo sigue siendo un proxy que no verifica la adopción, y ninguna de estas asociaciones debe explicarse como causa.
 
-- Reemplazar nombres genéricos como `Mascota demo 199` por nombres verosímiles de mascotas, consistentes entre capturas para el mismo SKU. Seguirán siendo datos sintéticos, no fichas reales.
-- Hacer más variadas y coherentes las combinaciones de atributos de los perfiles, evitando que el resultado dependa demasiado de una relación artificial entre la etiqueta y una variable como `orden_publicacion`.
-- Volver a ejecutar HU01 y HU02 después de los cambios y comprobar que los conteos y transiciones semanales acordados se conservan. Reentrenar y describir las métricas que resulten de los datos; no modificar los perfiles para forzar una puntuación objetivo.
+Las métricas de este escenario son demostrativas: describen una partición pequeña de datos sintéticos y no deben presentarse como desempeño esperado con datos reales. Una muestra pequeña puede producir variaciones notables entre particiones; cada observación pesa mucho en el resultado. La importancia global se calcula sobre variables codificadas (por ejemplo, categorías de tamaño) y no demuestra causalidad; las asociaciones del escenario son sintéticas.
 
-Este trabajo está pendiente de revisión con el usuario. Hasta completarlo, la importancia global y las métricas del escenario se deben explicar como una prueba controlada, no como evidencia de desempeño real.
+### Interpretación de métricas y criterio orientativo de publicación
+
+Todas estas métricas tienen valores entre 0 y 1 (o entre 0 % y 100 %); cuanto más altas, mejor en general, pero cada una responde una pregunta distinta. Se evalúan sobre el grupo de prueba, que no se utilizó para ajustar el modelo:
+
+- **Accuracy:** proporción de predicciones correctas entre todos los perfiles de prueba. Puede parecer alta si una clase es mucho más frecuente que la otra.
+- **Precision:** entre los perfiles que el modelo clasifica como `salio_catalogo`, qué proporción realmente tiene esa etiqueta. Una Precision baja implica más falsas alarmas de salida.
+- **Recall:** entre los perfiles que realmente tienen la etiqueta `salio_catalogo`, qué proporción detectó el modelo. Un Recall bajo implica más salidas que no detectó.
+- **F1-score:** media armónica de Precision y Recall; ayuda a revisar el equilibrio entre ambas, especialmente cuando las clases no tienen el mismo tamaño.
+- **Matriz de confusión:** muestra los aciertos y errores por clase. En esta implementación, las filas son etiquetas reales y las columnas predicciones, en orden `[permanece, salio_catalogo]`.
+
+No existe un corte universal que vuelva aceptable a cualquier modelo. Para esta demostración se propone como **guía inicial de revisión**, no como regla estadística ni requisito aprobado por WUF: Accuracy de al menos 75 % (umbral que actualmente sí aplica la aplicación), y Precision, Recall y F1 de al menos 70 % para la clase `salio_catalogo`. Además, revisar la matriz, confirmar que ambas clases estén representadas en prueba y comparar Accuracy con una predicción base que siempre elija la clase mayoritaria. Si una métrica cae bajo la guía, investigar el tipo de error y el tamaño de muestra antes de publicar; no ocultar el resultado ni cambiar los datos para forzar el corte. El sistema hoy bloquea automáticamente solo por el umbral configurable de Accuracy; las otras métricas se muestran para decisión informada del Analista.
+
+Para que la evaluación resulte más estable se necesitan más mascotas únicas, etiquetas fiables y una evaluación con datos de otro periodo. La etiqueta actual es salida del catálogo, no adopción verificada. Con los datos sintéticos pequeños, conservar la semilla reproducible, empezar probando 25–30 % para prueba y comparar opciones de árboles/profundidad sin escoger una configuración solo porque obtuvo la mayor puntuación en la misma partición. Estos parámetros son puntos de partida, no valores universalmente óptimos.
+
+Cada vez que se regeneren o importen los CSV, hay que crear de nuevo el dataset HU02 y entrenar una versión nueva. Las versiones y artefactos ya guardados no se recalculan automáticamente a partir de los CSV modificados.
 
 ## Preparación de datos y modelo
 
@@ -73,7 +86,7 @@ Los archivos `backend/app/domain/model_training.py`, `backend/app/services/model
 ## Configuración inicial en Windows
 
 1. Haz una copia de seguridad de PostgreSQL.
-2. Con pgAdmin, conéctate a la base de trabajo v2/v3 (para este proyecto, `wuf_predict_v3`), abre Query Tool y ejecuta **una sola vez** `backend/upgrade_hu03_ml.sql`. No ejecutes nuevamente el esquema completo.
+2. Para crear la base de demostración nueva desde pgAdmin, crea primero una base vacía `wuf_predict_v4` y ejecuta `backend/schema_wuf_predict_v4.sql`. Este archivo ya integra las estructuras HU03 en el esquema. No ejecutes después la migración, que queda para bases v2/v3 antiguas.
 3. Desde PowerShell entra a `backend/`, activa `.venv` y actualiza las dependencias del proyecto:
 
    ```powershell

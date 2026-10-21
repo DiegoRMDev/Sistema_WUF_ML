@@ -21,7 +21,7 @@ Este directorio convierte el avance académico y el prototipo navegable en una g
 - El prototipo guía la estructura visual, la navegación y el flujo esperado; sus cifras y registros estáticos son de muestra. Los datos funcionales se consultan desde PostgreSQL.
 - El backend obtiene la fecha de captura del nombre validado del CSV, calcula semana ISO y audita aparte el momento de importación.
 - La salida del catálogo que HU02 deriva comparando snapshots es una etiqueta proxy y no confirma adopción real.
-- `wuf_predict` y `wuf_predict_v2` se conservan sin cambios; el esquema v2 puede instalarse en una base limpia `wuf_predict_v3`. Los CSV con transiciones controladas están en `data/capturas/escenario_hu02_v3/`; la variante variable (180→165→190), con salida gradual por `no_disponible`, está en `data/capturas/escenario_hu02_variable_v3/` y el usuario confirmó su prueba en una base demo aislada.
+- `wuf_predict` y las bases anteriores se conservan. Para preparar una base limpia `wuf_predict_v4` desde pgAdmin, crea la base y ejecuta [`../backend/schema_wuf_predict_v4.sql`](../backend/schema_wuf_predict_v4.sql), que integra directamente el esquema completo HU01–HU03. El archivo configura tablas en una base vacía; no crea la base. `upgrade_hu03_ml.sql` queda para bases v2/v3 antiguas. Los CSV variables mantienen 180→165→190 y usan supuestos sintéticos para demostrar asociaciones entre atributos y salida del catálogo, no adopciones reales.
 
 ## Orden de lectura
 

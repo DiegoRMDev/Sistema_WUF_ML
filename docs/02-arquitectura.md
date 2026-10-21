@@ -106,7 +106,7 @@ Actualmente hay `docs/`, `prototipo/`, `frontend/public/`, `backend/app/` (api, 
 
 ## Esquema v2/v3 para HU02, HU03 y el prototipo
 
-Para HU02 se preparó [`../backend/schema_wuf_predict_v2.sql`](../backend/schema_wuf_predict_v2.sql), derivado del diccionario físico original. Se puede ejecutar en una base vacía `wuf_predict_v2` o `wuf_predict_v3`; para la prueba aislada se usa v3. Añade fecha de captura separada de la importación y relaciones versionadas entre dataset, ejecuciones y snapshots. HU03 añade persistencia de experimentos y predicciones; para una base v2/v3 existente se aplica [`../backend/upgrade_hu03_ml.sql`](../backend/upgrade_hu03_ml.sql). El SQL completo no migra ni borra bases existentes.
+Para HU02 se preparó [`../backend/schema_wuf_predict_v2.sql`](../backend/schema_wuf_predict_v2.sql), derivado del diccionario físico original. Para crear la base limpia v4 se preparó el instalador [`../backend/schema_wuf_predict_v4.sql`](../backend/schema_wuf_predict_v4.sql), que integra directamente las estructuras HU01–HU03 en el esquema. [`../backend/upgrade_hu03_ml.sql`](../backend/upgrade_hu03_ml.sql) queda para actualizar bases v2/v3 antiguas. El instalador configura tablas dentro de una base que primero se crea desde pgAdmin; no crea ni borra bases de datos.
 
 El backend de HU01 valida la fecha desde el nombre del archivo, y el guardado comprueba mascota/SKU/snapshot/ejecución. HU02 requiere el esquema v2 completo, genera la cohorte de mascotas disponibles al inicio y persiste snapshots, ejecuciones fuente, etiquetas y hash. Consulta [`13-hu02-dataset-historico.md`](13-hu02-dataset-historico.md).
 

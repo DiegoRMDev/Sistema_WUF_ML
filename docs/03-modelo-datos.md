@@ -1,6 +1,6 @@
 # Modelo físico y diccionario de datos
 
-Este documento conserva el diccionario físico del avance y diferencia el esquema anterior del diseño v2 para HU02. [`../backend/schema.sql`](../backend/schema.sql) corresponde a la base anterior; [`../backend/schema_wuf_predict_v2.sql`](../backend/schema_wuf_predict_v2.sql) crea el esquema objetivo en una base vacía `wuf_predict_v2` o `wuf_predict_v3`. El SQL no migra ni elimina datos existentes.
+Este documento conserva el diccionario físico del avance y diferencia el esquema anterior del diseño v2 para HU02/HU03. [`../backend/schema.sql`](../backend/schema.sql) corresponde a la base anterior; [`../backend/schema_wuf_predict_v2.sql`](../backend/schema_wuf_predict_v2.sql) crea el esquema objetivo completo en una base vacía `wuf_predict_v2`, `wuf_predict_v3` o `wuf_predict_v4`. El SQL no migra ni elimina datos existentes.
 
 ## Diccionario de datos del esquema anterior
 
@@ -226,7 +226,7 @@ El archivo `schema.sql` crea el modelo físico documentado y las extensiones de 
 
 ## Esquema v2 para HU02 y el prototipo
 
-La base `wuf_predict_v2` y la nueva base limpia `wuf_predict_v3` parten del diccionario original y acomoda las extensiones necesarias para cumplir RF03 y la vista del prototipo. El SQL completo está en [`../backend/schema_wuf_predict_v2.sql`](../backend/schema_wuf_predict_v2.sql). La base `wuf_predict` y su `schema.sql` se conservan sin cambios.
+Las bases `wuf_predict_v2`, `wuf_predict_v3` y la nueva base limpia `wuf_predict_v4` parten del diccionario original y acomodan las extensiones necesarias para cumplir RF03 y la vista del prototipo. El SQL completo está en [`../backend/schema_wuf_predict_v2.sql`](../backend/schema_wuf_predict_v2.sql). Las bases anteriores se conservan sin cambios.
 
 Cambios del diseño v2:
 
@@ -240,7 +240,7 @@ Cambios del diseño v2:
 
 ### Extensión de persistencia para HU03
 
-El esquema v2/v3 y `modelo_predictivo` se amplían con [`../backend/upgrade_hu03_ml.sql`](../backend/upgrade_hu03_ml.sql). También se incluyen las columnas en el esquema completo para una instalación nueva. La ampliación conserva los campos del diccionario académico y añade:
+[`../backend/schema_wuf_predict_v2.sql`](../backend/schema_wuf_predict_v2.sql) ya contiene las estructuras HU03. Para la instalación limpia se preparó [`../backend/schema_wuf_predict_v4.sql`](../backend/schema_wuf_predict_v4.sql), un esquema único con las columnas, restricciones e índices de ambas etapas integrados directamente en las definiciones de tablas. [`../backend/upgrade_hu03_ml.sql`](../backend/upgrade_hu03_ml.sql) queda reservado para actualizar bases v2/v3 antiguas que no tengan HU03. La definición integrada conserva los campos del diccionario académico y añade:
 
 | Campo | Propósito |
 |---|---|
@@ -263,13 +263,13 @@ La UI del prototipo muestra semanas 6, 7 y 8 como contenido ilustrativo. En los 
 ### Crear una base v2/v3 vacía en pgAdmin
 
 1. En pgAdmin, conéctate al mismo servidor PostgreSQL 16 que usa el proyecto.
-2. En **Databases**, crea la base que usarás (`wuf_predict_v2` o `wuf_predict_v3`) con propietario igual al usuario configurado para la aplicación. Para HU02 controlada usa `wuf_predict_v3`; conserva las anteriores.
-3. Selecciona la base vacía creada, abre **Query Tool**, carga [`../backend/schema_wuf_predict_v2.sql`](../backend/schema_wuf_predict_v2.sql) y ejecútalo una sola vez.
+2. En **Databases**, crea la base que usarás con propietario igual al usuario configurado para la aplicación. Para las capturas variables y HU03 usa `wuf_predict_v4`; conserva las bases anteriores.
+3. Selecciona la base vacía creada, abre **Query Tool**, carga [`../backend/schema_wuf_predict_v4.sql`](../backend/schema_wuf_predict_v4.sql) y ejecútalo una sola vez. Este archivo crea directamente el esquema completo HU01–HU03; no ejecutes la migración después.
 4. Comprueba que se crearon las tablas y restricciones sin error. El script usa transacción y no contiene `DROP DATABASE` ni elimina otra base.
 5. Si instalaste una primera revisión del esquema v2 que no tiene la tabla `dataset_ejecucion`, aplica una sola vez [`../backend/upgrade_wuf_predict_v2_dataset.sql`](../backend/upgrade_wuf_predict_v2_dataset.sql). El esquema completo actual ya incluye esa tabla y no requiere esa migración.
 6. El backend HU01 ahora acepta ambos esquemas, calcula semana ISO desde el nombre del archivo, no persiste la etiqueta sintética y valida la relación mascota/SKU/snapshot/ejecución antes de confirmar. Cambia `DATABASE_URL` local para apuntar al nombre de base elegido y reinicia la API solo cuando la base y el usuario estén preparados. No publiques el `.env`.
 
-La aplicación del SQL y de la migración se ejecuta por separado en pgAdmin; este trabajo no modificó tu PostgreSQL ni sustituye un respaldo de `wuf_predict`.
+La creación de la base y la aplicación de este esquema son dos pasos distintos en pgAdmin. El instalador no elimina ni reemplaza bases anteriores.
 
 ## Actualizar una base ya creada
 

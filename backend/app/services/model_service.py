@@ -1,7 +1,9 @@
 """Casos de uso HU03: entrenar, consultar y activar el modelo predictivo."""
 
+from datetime import datetime
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 # pandas conserva los nombres de columnas para que el pipeline reutilice su preprocesamiento.
 import pandas as pd
@@ -138,7 +140,7 @@ class ModelService:
     @staticmethod
     def _public_model(model: dict[str, Any]) -> dict[str, Any]:
         """Expone métricas y explicación sin revelar rutas locales del artefacto."""
-        return {
+        public = {
             key: model[key] for key in (
                 "id_modelo", "version", "algoritmo", "estado", "es_vigente", "id_dataset",
                 "dataset_version", "accuracy_score", "precision_score", "recall_score",
@@ -148,3 +150,12 @@ class ModelService:
                 "metadatos_entrenamiento",
             ) if key in model
         }
+        trained_at = public.get("fecha_entrenamiento")
+        if isinstance(trained_at, datetime):
+            lima_timezone = ZoneInfo("America/Lima")
+            # La columna antigua no guarda zona; sus valores representan hora local de Perú.
+            public["fecha_entrenamiento"] = (
+                trained_at.replace(tzinfo=lima_timezone)
+                if trained_at.tzinfo is None else trained_at.astimezone(lima_timezone)
+            )
+        return public

@@ -62,7 +62,8 @@ class ModelRepository:
                      nro_registros_prueba, nro_registros_excluidos, umbral_accuracy,
                      matriz_confusion, importancia_variables)
                 VALUES (:dataset_id, 'RandomForestClassifier', 'pendiente', :accuracy,
-                        :precision, :recall, :f1, CURRENT_TIMESTAMP, :estado,
+                        :precision, :recall, :f1,
+                        (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima'), :estado,
                         CAST(:metadata AS JSONB), 'salio_catalogo', :train_count,
                         :test_count, :excluded_count, :threshold,
                         CAST(:confusion AS JSONB), CAST(:importance AS JSONB))
