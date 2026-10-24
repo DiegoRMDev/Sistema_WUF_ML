@@ -80,3 +80,43 @@ def verify_hu03_schema() -> None:
         raise RuntimeError(
             "Falta aplicar backend/upgrade_hu03_ml.sql en la base v2/v3 antes de iniciar HU03."
         )
+
+
+def verify_hu04_schema() -> None:
+    """Informa al iniciar si falta la persistencia requerida por HU04 en el esquema v4."""
+    with engine.connect() as connection:
+        tables = set(connection.execute(text("""
+            SELECT table_name
+            FROM information_schema.tables
+            WHERE table_schema = current_schema()
+        """)).scalars().all())
+    # Las instalaciones antiguas se conservan para HU01; HU04 está disponible en el esquema v4.
+    if "ejecucion_recoleccion" not in tables:
+        return
+    with engine.connect() as connection:
+        capture_columns = set(connection.execute(text("""
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = current_schema()
+              AND table_name = 'ejecucion_recoleccion'
+        """)).scalars().all())
+        hu04_columns = {
+            (row[0], row[1]) for row in connection.execute(text("""
+                SELECT table_name, column_name
+                FROM information_schema.columns
+                WHERE table_schema = current_schema()
+                  AND table_name IN ('modelo_consistencia', 'evaluacion_consistencia')
+            """)).all()
+        }
+    if "fecha_captura" not in capture_columns:
+        return
+    required = {
+        ("modelo_consistencia", "artefacto_sha256"),
+        ("modelo_consistencia", "metadatos_entrenamiento"),
+        ("evaluacion_consistencia", "id_snapshot"),
+        ("evaluacion_consistencia", "justificacion"),
+    }
+    if not {"modelo_consistencia", "evaluacion_consistencia"}.issubset(tables) or not required.issubset(hu04_columns):
+        raise RuntimeError(
+            "Falta ejecutar backend/upgrade_hu04_consistency.sql para habilitar HU04."
+        )

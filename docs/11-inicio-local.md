@@ -8,7 +8,7 @@ Esta guía permite que otra persona prepare el entorno local y ejecute el backen
 - Python 3.12 o 3.13. Comprueba las versiones disponibles con `py --list`.
 - PostgreSQL 16 instalado y en ejecución.
 - Para HU01 se puede continuar en `wuf_predict_v2`. Para la prueba aislada de HU02, crea `wuf_predict_v3` y usa los CSV de `data/capturas/escenario_hu02_v3/`; conserva las bases anteriores como respaldo.
-- Para preparar la base limpia del escenario actualizado, crea `wuf_predict_v4` desde pgAdmin y ejecuta `backend/schema_wuf_predict_v4.sql`. El `.env` local se mantiene en `wuf_predict_v3_prueba3` hasta que decidas cambiarlo a la nueva base.
+- Para una base nueva del escenario HU01–HU04, crea `wuf_predict_v5` desde pgAdmin y ejecuta `backend/schema_wuf_predict_v4.sql`. Configura `DATABASE_URL` en el `.env` local para usar `wuf_predict_v5`; no repitas el instalador sobre una base ya creada.
 - Git, si se descargó el proyecto desde GitHub.
 
 > Los comandos no requieren instalar herramientas pagadas. Las dependencias de Python se declaran en `backend/pyproject.toml`.
@@ -64,9 +64,13 @@ En la siguiente sección de configuración, conserva host, puerto, usuario y con
 5. Desde la sección Recolección importa, en este orden, los tres archivos de `data/capturas/escenario_hu02_v3/`: `captura_demo_2026-09-28.csv`, `captura_demo_2026-10-05.csv`, `captura_demo_2026-10-12.csv`.
 6. Comprueba que las tres ejecuciones terminen como Completada. Ve a Dataset histórico y pulsa Generar dataset. El resultado controlado esperado es 108 filas de cohorte: 66 Permanecen y 42 Salieron del catálogo.
 
-### Base limpia v4 para HU02/HU03
+### Base limpia `wuf_predict_v5` para HU01–HU04
 
-Para usar la variante actualizada de `data/capturas/escenario_hu02_variable_v3/`, crea `wuf_predict_v4` en pgAdmin y ejecuta [`../backend/schema_wuf_predict_v4.sql`](../backend/schema_wuf_predict_v4.sql) en su Query Tool. El archivo contiene un esquema único con las extensiones HU03 integradas directamente. No ejecutes `upgrade_hu03_ml.sql` después; esa migración queda para bases v2/v3 antiguas. Después, apunta `DATABASE_URL` a `wuf_predict_v4`, reinicia el backend, crea el usuario Analista e importa las tres capturas cronológicamente antes de generar el dataset y entrenar.
+Para usar la variante actualizada de `data/capturas/escenario_hu02_variable_v3/`, crea `wuf_predict_v5` en pgAdmin y ejecuta [`../backend/schema_wuf_predict_v4.sql`](../backend/schema_wuf_predict_v4.sql) en su Query Tool. El nombre del archivo corresponde a la versión del esquema; el nombre de la base es `wuf_predict_v5`. Este instalador incluye el esquema final HU01–HU04 y solo acepta la regla actual HU04 v2. En una base nueva ejecuta **solo este archivo**: no ejecutes `upgrade_hu03_ml.sql`, `upgrade_hu04_consistency.sql` ni `upgrade_hu04_revision_priority_v2.sql` después. Esos upgrades quedan para bases existentes que necesiten conservar sus registros anteriores. Después, apunta `DATABASE_URL` a `wuf_predict_v5`, reinicia el backend, crea el usuario Analista e importa las capturas cronológicamente antes de generar dataset y entrenar los árboles/modelos.
+
+### Agregar HU04 a una base existente
+
+Para una base existente que todavía solo tenga HU01–HU03, detén el backend, conéctate desde pgAdmin y ejecuta una sola vez [`../backend/upgrade_hu04_consistency.sql`](../backend/upgrade_hu04_consistency.sql). Añade `modelo_consistencia` y `evaluacion_consistencia` sin borrar los datos anteriores. Si esas tablas ya existen pero la restricción aún no acepta `prioridad_revision_hu04_v2`, ejecuta una sola vez [`../backend/upgrade_hu04_revision_priority_v2.sql`](../backend/upgrade_hu04_revision_priority_v2.sql). Reinicia el backend. No vuelvas a ejecutar el instalador completo sobre una base ya creada. Para la base limpia `wuf_predict_v5`, usa únicamente `schema_wuf_predict_v4.sql`.
 
 ### Actualizar una base v2/v3 para HU03
 

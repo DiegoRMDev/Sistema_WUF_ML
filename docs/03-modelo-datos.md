@@ -1,6 +1,6 @@
 # Modelo físico y diccionario de datos
 
-Este documento conserva el diccionario físico del avance y diferencia el esquema anterior del diseño v2 para HU02/HU03. [`../backend/schema.sql`](../backend/schema.sql) corresponde a la base anterior; [`../backend/schema_wuf_predict_v2.sql`](../backend/schema_wuf_predict_v2.sql) crea el esquema objetivo completo en una base vacía `wuf_predict_v2`, `wuf_predict_v3` o `wuf_predict_v4`. El SQL no migra ni elimina datos existentes.
+Este documento conserva el diccionario físico del avance y diferencia el esquema anterior de las extensiones implementadas por módulos. [`../backend/schema.sql`](../backend/schema.sql) corresponde a la base anterior; [`../backend/schema_wuf_predict_v2.sql`](../backend/schema_wuf_predict_v2.sql) conserva el esquema HU01–HU03 de instalación limpia, y [`../backend/schema_wuf_predict_v4.sql`](../backend/schema_wuf_predict_v4.sql) incorpora además HU04. El SQL no migra ni elimina datos existentes.
 
 ## Diccionario de datos del esquema anterior
 
@@ -226,7 +226,7 @@ El archivo `schema.sql` crea el modelo físico documentado y las extensiones de 
 
 ## Esquema v2 para HU02 y el prototipo
 
-Las bases `wuf_predict_v2`, `wuf_predict_v3` y la nueva base limpia `wuf_predict_v4` parten del diccionario original y acomodan las extensiones necesarias para cumplir RF03 y la vista del prototipo. El SQL completo está en [`../backend/schema_wuf_predict_v2.sql`](../backend/schema_wuf_predict_v2.sql). Las bases anteriores se conservan sin cambios.
+Las bases `wuf_predict_v2`, `wuf_predict_v3` y la nueva base limpia `wuf_predict_v5` parten del diccionario original y acomodan las extensiones necesarias para cumplir RF03 y la vista del prototipo. El SQL completo está en [`../backend/schema_wuf_predict_v2.sql`](../backend/schema_wuf_predict_v2.sql). Las bases anteriores se conservan sin cambios.
 
 Cambios del diseño v2:
 
@@ -254,17 +254,28 @@ Además, HU03 agrega `prediccion.id_ejecucion` como relación opcional a `ejecuc
 
 El artefacto se guarda en `MODEL_ARTIFACT_DIR`, fuera de `frontend/public/`; el API nunca revela una ruta absoluta ni acepta archivos de modelo subidos por el usuario. `prediccion.probabilidad_adopcion` guarda la estimación mostrada en pantalla; para HU03 su clase objetivo efectiva es `salio_catalogo`, por lo que es un proxy metodológico y no una adopción verificada.
 
+### Persistencia de evaluación de consistencia HU04
+
+El esquema limpio v4 incluye `modelo_consistencia` y `evaluacion_consistencia`, y solo permite registrar la regla actual v2. Para una base nueva no se ejecutan migraciones. En una base existente que todavía no tiene HU04, [`../backend/upgrade_hu04_consistency.sql`](../backend/upgrade_hu04_consistency.sql) agrega estas estructuras sin borrar datos previos; si tiene HU04 con historial v1 pero aún rechaza la regla v2, se aplica [`../backend/upgrade_hu04_revision_priority_v2.sql`](../backend/upgrade_hu04_revision_priority_v2.sql), que conserva ambas versiones para no invalidar ese historial.
+
+| Tabla | Responsabilidad |
+|---|---|
+| `modelo_consistencia` | Versionar el `DecisionTreeClassifier`, su fuente de etiquetas demo, métricas, matriz, reglas, hiperparámetros y artefacto con hash. Solo una versión queda vigente. |
+| `evaluacion_consistencia` | Relacionar modelo, mascota, snapshot y ejecución; registrar riesgo, indicadores de historial y justificación generada por el árbol. |
+
+El código actual registra las prioridades con la fuente `prioridad_revision_hu04_v2`. Las evaluaciones son prioridades demo; sus métricas no son exactitud frente a estados reales. `alerta_desactualizacion` conserva su función prevista para el flujo de notificación/atención HU07; las evaluaciones HU04 no se guardan como si ya fueran alertas atendidas.
+
 ### Regla funcional propuesta a partir del avance original
 
 Una captura CSV debe representar un catálogo completo y una ejecución completada. La regla alineada al prototipo asigna `permanece` si el estado final es `disponible`; asigna `salio_catalogo` si el estado final es `no_disponible` o si el perfil falta en una captura completa posterior. RF03 interpreta la salida como proxy de “adoptada”, pero no se confirma una adopción real. `sin_publicar`, capturas parciales, periodo sin captura posterior o evidencia incompleta producen `indeterminada`. La versión de la regla debe persistirse con el dataset.
 
 La UI del prototipo muestra semanas 6, 7 y 8 como contenido ilustrativo. En los CSV demo fechados 28-sep, 05-oct y 12-oct de 2026, el calendario ISO corresponde a semanas 40, 41 y 42. Se conservará la vista semanal, pero los datos funcionales mostrarán su semana calendario ISO, no copiarán los números estáticos del prototipo.
 
-### Crear una base v2/v3 vacía en pgAdmin
+### Crear la base limpia `wuf_predict_v5` en pgAdmin
 
 1. En pgAdmin, conéctate al mismo servidor PostgreSQL 16 que usa el proyecto.
-2. En **Databases**, crea la base que usarás con propietario igual al usuario configurado para la aplicación. Para las capturas variables y HU03 usa `wuf_predict_v4`; conserva las bases anteriores.
-3. Selecciona la base vacía creada, abre **Query Tool**, carga [`../backend/schema_wuf_predict_v4.sql`](../backend/schema_wuf_predict_v4.sql) y ejecútalo una sola vez. Este archivo crea directamente el esquema completo HU01–HU03; no ejecutes la migración después.
+2. En **Databases**, crea la base `wuf_predict_v5` con propietario igual al usuario configurado para la aplicación; conserva las bases anteriores.
+3. Selecciona `wuf_predict_v5`, abre **Query Tool**, carga [`../backend/schema_wuf_predict_v4.sql`](../backend/schema_wuf_predict_v4.sql) y ejecútalo una sola vez. Aunque el nombre del archivo conserva la versión del esquema, instala directamente el esquema final HU01–HU04, incluida la regla HU04 v2; no ejecutes migraciones después.
 4. Comprueba que se crearon las tablas y restricciones sin error. El script usa transacción y no contiene `DROP DATABASE` ni elimina otra base.
 5. Si instalaste una primera revisión del esquema v2 que no tiene la tabla `dataset_ejecucion`, aplica una sola vez [`../backend/upgrade_wuf_predict_v2_dataset.sql`](../backend/upgrade_wuf_predict_v2_dataset.sql). El esquema completo actual ya incluye esa tabla y no requiere esa migración.
 6. El backend HU01 ahora acepta ambos esquemas, calcula semana ISO desde el nombre del archivo, no persiste la etiqueta sintética y valida la relación mascota/SKU/snapshot/ejecución antes de confirmar. Cambia `DATABASE_URL` local para apuntar al nombre de base elegido y reinicia la API solo cuando la base y el usuario estén preparados. No publiques el `.env`.

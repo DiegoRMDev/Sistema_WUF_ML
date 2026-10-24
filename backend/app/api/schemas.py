@@ -3,7 +3,7 @@
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 
 
 class LoginRequest(BaseModel):
@@ -97,3 +97,19 @@ class ModelTrainingRequest(BaseModel):
     proporcion_prueba: float = Field(ge=0.1, le=0.4)
     cantidad_arboles: int = Field(ge=50, le=1000)
     profundidad_maxima: int | None = Field(default=None, ge=2, le=50)
+
+
+class ConsistencyTrainingRequest(BaseModel):
+    """Opciones acotadas que el Analista puede ajustar para entrenar HU04."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    profundidad_maxima: int = Field(default=3, ge=1, le=4)
+    proporcion_prueba: float = Field(default=0.25, ge=0.1, le=0.4)
+
+    @field_validator("proporcion_prueba")
+    @classmethod
+    def validate_test_size_choice(cls, value: float) -> float:
+        if value not in {0.2, 0.25, 0.3}:
+            raise ValueError("El porcentaje de prueba debe ser 20 %, 25 % o 30 %.")
+        return value

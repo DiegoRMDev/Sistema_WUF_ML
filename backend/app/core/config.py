@@ -26,6 +26,14 @@ class Settings(BaseSettings):
     model_random_seed: int = 42
     model_priority_high_max: float = 0.35
     model_priority_medium_max: float = 0.65
+    consistency_test_size: float = 0.25
+    consistency_random_seed: int = 42
+    consistency_max_depth: int = 3
+    consistency_high_min_captures: int = 3
+    consistency_high_min_age_days: int = 180
+    consistency_medium_min_captures: int = 2
+    consistency_medium_min_age_days: int = 60
+    consistency_max_capture_gap_days: int = 14
     cors_origins: str = "http://localhost:5500,http://127.0.0.1:5500"
 
     model_config = SettingsConfigDict(
@@ -112,6 +120,58 @@ class Settings(BaseSettings):
         if not 50 <= value <= 1000:
             raise ValueError("MODEL_DEFAULT_ESTIMATORS debe estar entre 50 y 1000.")
         return value
+
+    @field_validator("consistency_test_size")
+    @classmethod
+    def validate_consistency_test_size(cls, value: float) -> float:
+        if not 0.1 <= value <= 0.4:
+            raise ValueError("CONSISTENCY_TEST_SIZE debe estar entre 0.10 y 0.40.")
+        return value
+
+    @field_validator("consistency_random_seed")
+    @classmethod
+    def validate_consistency_seed(cls, value: int) -> int:
+        if not 0 <= value <= 2_147_483_647:
+            raise ValueError("CONSISTENCY_RANDOM_SEED está fuera del rango permitido.")
+        return value
+
+    @field_validator("consistency_max_depth")
+    @classmethod
+    def validate_consistency_depth(cls, value: int) -> int:
+        if not 1 <= value <= 4:
+            raise ValueError("CONSISTENCY_MAX_DEPTH debe estar entre 1 y 4.")
+        return value
+
+    @field_validator("consistency_max_capture_gap_days")
+    @classmethod
+    def validate_consistency_capture_gap(cls, value: int) -> int:
+        if not 1 <= value <= 31:
+            raise ValueError("CONSISTENCY_MAX_CAPTURE_GAP_DAYS debe estar entre 1 y 31.")
+        return value
+
+    @field_validator(
+        "consistency_high_min_captures", "consistency_medium_min_captures",
+    )
+    @classmethod
+    def validate_consistency_captures(cls, value: int) -> int:
+        if not 2 <= value <= 12:
+            raise ValueError("Los umbrales de capturas HU04 deben estar entre 2 y 12.")
+        return value
+
+    @field_validator("consistency_high_min_age_days", "consistency_medium_min_age_days")
+    @classmethod
+    def validate_consistency_age(cls, value: int) -> int:
+        if not 1 <= value <= 3650:
+            raise ValueError("Los umbrales de antigüedad HU04 deben estar entre 1 y 3650 días.")
+        return value
+
+    @model_validator(mode="after")
+    def validate_consistency_thresholds(self) -> "Settings":
+        if self.consistency_medium_min_captures >= self.consistency_high_min_captures:
+            raise ValueError("El umbral de capturas medio debe ser menor que el alto.")
+        if self.consistency_medium_min_age_days >= self.consistency_high_min_age_days:
+            raise ValueError("El umbral de antigüedad medio debe ser menor que el alto.")
+        return self
 
     @model_validator(mode="after")
     def validate_priority_bounds(self) -> "Settings":

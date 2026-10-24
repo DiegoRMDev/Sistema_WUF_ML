@@ -8,13 +8,72 @@ const ROLE_LABELS = {
 const API_BASE = window.WUF_CONFIG?.apiBaseUrl?.replace(/\/$/, "");
 
 function $(id) { return document.getElementById(id); }
-// Los avisos solo ocupan espacio cuando realmente hay un mensaje que mostrar.
+const toastEntries = new Map();
+
+// Los avisos de todos los módulos se muestran en una región global común.
 function setNotice(id, text = "", state = "") {
-  const notice = $(id);
-  if (!notice) return;
-  notice.textContent = text;
-  notice.dataset.state = state;
-  notice.hidden = !text;
+  const current = toastEntries.get(id);
+  if (current?.timer) window.clearTimeout(current.timer);
+  if (!text) {
+    current?.element.remove();
+    toastEntries.delete(id);
+    return;
+  }
+
+  const region = $("toastRegion");
+  if (!region) return;
+  const severity = ["success", "warning", "error", "loading"].includes(state) ? state : "info";
+  const labels = { success: "Listo", warning: "Aviso", error: "Error", loading: "Procesando", info: "Información" };
+  const symbols = { success: "✓", warning: "!", error: "×", loading: "…", info: "i" };
+  let element = current?.element;
+  if (!element) {
+    element = document.createElement("div");
+    element.className = "toast";
+    const icon = document.createElement("span");
+    icon.className = "toast-icon";
+    icon.setAttribute("aria-hidden", "true");
+    const content = document.createElement("div");
+    content.className = "toast-content";
+    const title = document.createElement("strong");
+    title.className = "toast-title";
+    const message = document.createElement("span");
+    message.className = "toast-message";
+    content.append(title, message);
+    const dismiss = document.createElement("button");
+    dismiss.type = "button";
+    dismiss.className = "toast-dismiss";
+    dismiss.setAttribute("aria-label", "Cerrar mensaje");
+    dismiss.textContent = "×";
+    dismiss.addEventListener("click", () => dismissToast(id));
+    element.append(icon, content, dismiss);
+    region.append(element);
+  }
+
+  element.className = `toast toast-${severity}`;
+  element.setAttribute("role", severity === "error" ? "alert" : "status");
+  element.setAttribute("aria-live", severity === "error" ? "assertive" : "polite");
+  element.setAttribute("aria-atomic", "true");
+  element.querySelector(".toast-icon").textContent = symbols[severity];
+  element.querySelector(".toast-title").textContent = labels[severity];
+  element.querySelector(".toast-message").textContent = text;
+
+  // Los mensajes de proceso siguen visibles hasta que la operación termine; los demás caducan solos.
+  const timeout = { success: 5500, warning: 8000, error: 9000, info: 6500 }[severity];
+  const entry = { element, timer: null };
+  if (severity !== "loading") {
+    entry.timer = window.setTimeout(() => {
+      if (toastEntries.get(id) === entry) dismissToast(id);
+    }, timeout);
+  }
+  toastEntries.set(id, entry);
+}
+
+function dismissToast(id) {
+  const entry = toastEntries.get(id);
+  if (!entry) return;
+  if (entry.timer) window.clearTimeout(entry.timer);
+  entry.element.remove();
+  toastEntries.delete(id);
 }
 function session() {
   try { return JSON.parse(sessionStorage.getItem("wuf.session")); }
@@ -45,9 +104,8 @@ async function api(path, options = {}) {
 
 async function login(event) {
   event.preventDefault();
-  const error = $("loginError");
+  setNotice("loginError");
   const button = event.currentTarget.querySelector("button[type=submit]");
-  error.textContent = "";
   button.disabled = true;
   try {
     const token = await api("/auth/login", {
@@ -59,7 +117,7 @@ async function login(event) {
     $("password").value = "";
     enterApp(user, HOME[user.rol]);
   } catch (cause) {
-    error.textContent = cause.message;
+    setNotice("loginError", cause.message, "error");
   } finally {
     button.disabled = false;
   }
@@ -71,7 +129,7 @@ function logout(message = "") {
   location.hash = "";
   $("app").style.display = "none";
   $("login").style.display = "flex";
-  $("loginError").textContent = message;
+  setNotice("loginError", message, message ? "error" : "");
 }
 
 function enterApp(user, view) {
@@ -108,12 +166,15 @@ function showView(name) {
   window.scrollTo(0, 0);
   if (name === "recoleccion") {
     // Al volver a la sección se limpia cualquier aviso de la visita anterior.
-    $("collectionMessage").textContent = "";
-    $("collectionMessage").dataset.state = "";
+    setNotice("collectionMessage");
     loadCollection();
   }
   if (name === "dataset") loadDataset();
-  if (name === "entrenamiento") loadModels();
+  if (name === "entrenamiento") {
+    loadModels();
+    loadConsistencyReport();
+  }
+  if (name === "alertas") loadConsistencyReport();
   if (name === "catalogo") loadCatalog();
 }
 
@@ -192,10 +253,9 @@ async function loadCollection() {
       // Separa el estado vacío de una falla de conexión para no mostrar errores como si fueran filas.
       body.replaceChildren(makeMessageRow("No se pudo cargar el historial de recolecciones."));
       const connectionFailure = cause instanceof TypeError && /fetch/i.test(cause.message);
-      $("collectionMessage").textContent = connectionFailure
+      setNotice("collectionMessage", connectionFailure
         ? "No se pudo conectar con la API. Comprueba que el backend siga ejecutándose en 127.0.0.1:8000; si acabas de cambiar dependencias o .env, reinícialo."
-        : cause.message;
-      $("collectionMessage").dataset.state = "error";
+        : cause.message, "error");
     }
   }
 }
@@ -247,31 +307,29 @@ async function runCollection() {
   const button = $("runCollectionButton");
   const chooseButton = $("chooseCollectionFileButton");
   const input = $("collectionCsvFile");
-  const message = $("collectionMessage");
   const file = input.files?.[0];
   if (!file) {
-    message.textContent = "Elige un archivo CSV antes de iniciar la importación.";
-    message.dataset.state = "error";
+    setNotice("collectionMessage", "Elige un archivo CSV antes de iniciar la importación.", "error");
     return;
   }
 
   button.disabled = true;
   chooseButton.disabled = true;
-  message.textContent = `Importando ${file.name}…`;
-  message.dataset.state = "";
+  setNotice("collectionMessage", `Importando ${file.name}…`, "loading");
   try {
     const formData = new FormData();
     formData.append("file", file, file.name);
     const result = await api("/collection-runs", { method: "POST", body: formData });
-    message.textContent = `Captura ${result.estado}: ${result.perfiles_persistidos} perfiles guardados y ${result.perfiles_rechazados} rechazados.${result.mensaje_error ? ` ${result.mensaje_error}` : ""}`;
-    message.dataset.state = result.estado === "completada" ? "success" : "error";
+    const outcome = `Captura ${result.estado}: ${result.perfiles_persistidos} perfiles guardados y ${result.perfiles_rechazados} rechazados.${result.mensaje_error ? ` ${result.mensaje_error}` : ""}`;
+    const severity = result.estado === "fallida" ? "error"
+      : result.estado === "parcial" || result.perfiles_rechazados > 0 ? "warning" : "success";
+    setNotice("collectionMessage", outcome, severity);
     input.value = "";
     $("collectionFileName").textContent = "No hay archivo seleccionado.";
     button.disabled = true;
     await loadCollection();
   } catch (cause) {
-    message.textContent = cause.message;
-    message.dataset.state = "error";
+    setNotice("collectionMessage", cause.message, "error");
     // Al limpiar el input se permite volver a elegir el mismo nombre tras corregir un CSV fallido.
     input.value = "";
     $("collectionFileName").textContent = "No hay archivo seleccionado.";
@@ -479,7 +537,7 @@ async function generateDataset() {
   button.disabled = true;
   const fechaDesde = $("datasetFrom").value;
   const fechaHasta = $("datasetTo").value;
-  setNotice("datasetMessage", "Generando una versión con el periodo seleccionado…");
+  setNotice("datasetMessage", "Generando una versión con el periodo seleccionado…", "loading");
   try {
     await api("/datasets", {
       method: "POST",
@@ -505,6 +563,7 @@ async function exportDataset() {
     const link = document.createElement("a");
     link.href = url; link.download = `dataset_${window.currentDatasetId}.csv`;
     document.body.append(link); link.click(); link.remove(); URL.revokeObjectURL(url);
+    setNotice("datasetMessage", "Descarga del dataset iniciada.", "success");
   } catch (cause) {
     setNotice("datasetMessage", cause.message, "error");
   }
@@ -547,6 +606,320 @@ async function loadModels() {
   } catch (cause) {
     history.replaceChildren(modelTableMessage("No se pudo cargar el historial de modelos."));
     setNotice("modelMessage", cause.message, "error");
+  }
+}
+
+let consistencyItems = [];
+
+async function loadConsistencyReport() {
+  setNotice("consistencyAlertsMessage");
+  try {
+    const report = await api("/consistency/latest");
+    renderConsistencyReport(report);
+  } catch (cause) {
+    setNotice("consistencyAlertsMessage", cause.message, "error");
+    $("consistencyItems").replaceChildren(modelText("p", "No se pudieron cargar las evaluaciones.", "muted pad"));
+  }
+}
+
+function renderConsistencyReport(report, { updateAlerts = true } = {}) {
+  const model = report.model;
+  if (updateAlerts) consistencyItems = report.items || [];
+  const summary = $("consistencyModelSummary");
+  const metrics = $("consistencyMetrics");
+  const importance = $("consistencyImportance");
+  const matrixBody = $("consistencyConfusion");
+  metrics.replaceChildren();
+  importance.replaceChildren();
+  matrixBody.replaceChildren();
+
+  if (!model) {
+    $("consistencyResults").hidden = true;
+    $("consistencyDiagramCard").hidden = true;
+    $("consistencyTreeDiagram").replaceChildren();
+    summary.textContent = "";
+    $("consistencyModelStatus").textContent = "";
+    $("consistencyModelStatus").hidden = true;
+    $("consistencyEvaluationNote").textContent = "";
+    $("consistencyEvaluationNote").hidden = true;
+    importance.append(modelText("p", "Sin resultados todavía.", "muted"));
+    matrixBody.append(modelTableMessage("Sin resultados todavía.", 4));
+    $("consistencyRules").textContent = "";
+    $("consistencyRulesDetails").hidden = true;
+    renderConsistencyHistory(report.history || []);
+    if (updateAlerts) {
+      setNotice("consistencyAlertsMessage", report.message || "Entrena el árbol para evaluar el catálogo.");
+      renderConsistencyAlerts();
+      updateConsistencyBadge();
+    }
+    return;
+  }
+
+  $("consistencyResults").hidden = false;
+  const metadata = model.metadatos_entrenamiento || {};
+  renderConsistencyTreeDiagram(metadata.diagrama_arbol, model.version);
+  const parameters = metadata.parametros || {};
+  const trainCount = Number(model.nro_registros_entrenamiento) || 0;
+  const testCount = Number(model.nro_registros_prueba) || 0;
+  const testedRows = trainCount + testCount;
+  const modelStatus = $("consistencyModelStatus");
+  modelStatus.textContent = model.es_vigente
+    ? `Modelo vigente · ${model.version}`
+    : `Versión histórica consultada · ${model.version}`;
+  modelStatus.hidden = false;
+  summary.textContent = `${model.es_vigente ? "Árbol vigente" : "Detalle del árbol"} ${model.version} · ${trainCount} observaciones de entrenamiento · ${testCount} de prueba (${formatMetric(parameters.test_size)}) · profundidad ${parameters.max_depth} · ${formatDate(model.fecha_entrenamiento)}.`;
+  [["Accuracy", model.accuracy_score], ["F1 macro", model.f1_macro_score]].forEach(([label, value]) => {
+    const card = document.createElement("div");
+    card.className = "metric";
+    card.append(modelText("div", formatMetric(value), "n"), modelText("div", label, "l"));
+    metrics.append(card);
+  });
+  const distribution = `Distribución de prioridades de referencia: baja ${metadata.conteo_clases_proxy?.bajo || 0}, media ${metadata.conteo_clases_proxy?.medio || 0}, alta ${metadata.conteo_clases_proxy?.alto || 0} · ${testedRows} observaciones en entrenamiento y prueba.`;
+  const comparison = metadata.comparacion_arbol_regla_catalogo;
+  const comparisonText = comparison
+    ? ` En la última captura, el árbol coincidió con la regla en ${comparison.coincidencias} de ${comparison.total} perfiles.`
+    : "";
+  $("consistencyEvaluationNote").textContent = `${distribution}${comparisonText}`;
+  $("consistencyEvaluationNote").hidden = false;
+  const importances = model.importancia_variables || [];
+  importances.forEach((item) => {
+    const label = modelText("div", item.feature);
+    const track = document.createElement("div");
+    track.className = "track";
+    const fill = document.createElement("div");
+    fill.className = "fill";
+    fill.style.width = `${Math.max(1, Number(item.importance) * 100)}%`;
+    track.append(fill);
+    importance.append(label, track, modelText("div", Number(item.importance).toFixed(3), "v"));
+  });
+  const risks = ["bajo", "medio", "alto"];
+  (model.matriz_confusion || []).forEach((values, index) => {
+    const row = document.createElement("tr");
+    appendTextCell(row, `Real: ${risks[index] || "—"}`);
+    values.forEach((value) => appendTextCell(row, String(value), "num"));
+    matrixBody.append(row);
+  });
+  if (!matrixBody.children.length) matrixBody.append(modelTableMessage("Sin matriz disponible.", 4));
+  const rules = (model.reglas_arbol || "").trim();
+  $("consistencyRules").textContent = rules;
+  $("consistencyRulesDetails").hidden = !rules;
+  renderConsistencyHistory(report.history || [], model.id_modelo_consistencia);
+  if (updateAlerts) {
+    setNotice("consistencyAlertsMessage");
+    $("consistencyAlertsSummary").textContent = `${consistencyItems.length} perfiles disponibles evaluados · árbol ${model.version} · captura de semana ${consistencyItems[0]?.semana ?? "—"}.`;
+    renderConsistencyAlerts();
+    updateConsistencyBadge();
+  }
+}
+
+// Dibuja cada versión desde la estructura del estimador que envió el backend.
+function renderConsistencyTreeDiagram(treeData, version) {
+  const section = $("consistencyDiagramCard");
+  const container = $("consistencyTreeDiagram");
+  container.replaceChildren();
+  if (!treeData || typeof treeData !== "object") {
+    section.hidden = true;
+    return;
+  }
+
+  const svgNamespace = "http://www.w3.org/2000/svg";
+  const makeSvgElement = (tag, attributes = {}) => {
+    const element = document.createElementNS(svgNamespace, tag);
+    Object.entries(attributes).forEach(([name, value]) => element.setAttribute(name, String(value)));
+    return element;
+  };
+  const countLeaves = (node) => (node.left && node.right
+    ? countLeaves(node.left) + countLeaves(node.right) : 1);
+  const depthOf = (node) => (node.left && node.right
+    ? 1 + Math.max(depthOf(node.left), depthOf(node.right)) : 0);
+
+  const leaves = countLeaves(treeData);
+  const depth = depthOf(treeData);
+  const nodeWidth = 210;
+  const nodeHeight = 82;
+  const columnGap = 245;
+  const horizontalPadding = 32;
+  const verticalPadding = 28;
+  const rowGap = 140;
+  const width = Math.max(500, horizontalPadding * 2 + leaves * columnGap);
+  const height = verticalPadding * 2 + (depth + 1) * rowGap;
+  let leafIndex = 0;
+  const positions = [];
+
+  function place(node, level) {
+    let centerX;
+    if (node.left && node.right) {
+      const leftX = place(node.left, level + 1);
+      const rightX = place(node.right, level + 1);
+      centerX = (leftX + rightX) / 2;
+    } else {
+      centerX = horizontalPadding + leafIndex * columnGap + columnGap / 2;
+      leafIndex += 1;
+    }
+    positions.push({ node, level, centerX, top: verticalPadding + level * rowGap });
+    return centerX;
+  }
+  place(treeData, 0);
+
+  const svg = makeSvgElement("svg", {
+    class: "tree-diagram-svg",
+    viewBox: `0 0 ${width} ${height}`,
+    width,
+    height,
+    role: "img",
+    "aria-label": `Diagrama del árbol de decisión ${version}`,
+  });
+  const title = makeSvgElement("title");
+  title.textContent = `Árbol de decisión ${version}`;
+  const description = makeSvgElement("desc");
+  description.textContent = "Las ramas muestran las condiciones y las hojas el nivel de riesgo asignado.";
+  svg.append(title, description);
+
+  const nodePositions = new Map(positions.map((position) => [position.node, position]));
+  positions.forEach(({ node, centerX, top }) => {
+    if (!node.left || !node.right) return;
+    [[node.left, "≤"], [node.right, ">"]].forEach(([child, direction]) => {
+      const childPosition = nodePositions.get(child);
+      const startY = top + nodeHeight;
+      const endY = childPosition.top;
+      const path = makeSvgElement("path", {
+        class: "tree-diagram-edge",
+        d: `M ${centerX} ${startY} L ${childPosition.centerX} ${endY}`,
+      });
+      svg.append(path);
+      const edgeLabel = makeSvgElement("text", {
+        class: "tree-diagram-edge-label",
+        x: (centerX + childPosition.centerX) / 2,
+        y: (startY + endY) / 2 - 4,
+      });
+      const threshold = Number(node.threshold).toLocaleString("es-PE", { maximumFractionDigits: 2 });
+      edgeLabel.textContent = `${direction} ${threshold}`;
+      svg.append(edgeLabel);
+    });
+  });
+
+  const riskLabels = { bajo: "Bajo", medio: "Medio", alto: "Alto" };
+  positions.forEach(({ node, centerX, top }) => {
+    const group = makeSvgElement("g", { class: `tree-node risk-${node.prediction}` });
+    group.append(makeSvgElement("rect", {
+      x: centerX - nodeWidth / 2, y: top, width: nodeWidth, height: nodeHeight, rx: 10,
+    }));
+    const firstLine = makeSvgElement("text", { x: centerX, y: top + 26 });
+    firstLine.textContent = node.feature || `Riesgo: ${riskLabels[node.prediction] || node.prediction}`;
+    const secondLine = makeSvgElement("text", {
+      class: "tree-node-secondary", x: centerX, y: top + 48,
+    });
+    secondLine.textContent = node.feature
+      ? `Condición: ≤ ${Number(node.threshold).toLocaleString("es-PE", { maximumFractionDigits: 2 })}`
+      : `${node.samples} observaciones`;
+    group.append(firstLine, secondLine);
+    if (node.feature) {
+      const thirdLine = makeSvgElement("text", {
+        class: "tree-node-secondary", x: centerX, y: top + 66,
+      });
+      thirdLine.textContent = `${node.samples} observaciones`;
+      group.append(thirdLine);
+    }
+    svg.append(group);
+  });
+  container.append(svg);
+  section.hidden = false;
+}
+
+function renderConsistencyHistory(history, selectedModelId = null) {
+  const body = $("consistencyHistory");
+  body.replaceChildren();
+  if (!history.length) {
+    body.append(modelTableMessage("Todavía no hay versiones.", 6));
+    return;
+  }
+  history.forEach((version) => {
+    const row = document.createElement("tr");
+    appendTextCell(row, version.version);
+    appendTextCell(row, version.es_vigente ? "Vigente" : "Anterior");
+    appendTextCell(row, formatMetric(version.accuracy_score));
+    appendTextCell(row, formatMetric(version.f1_macro_score));
+    appendTextCell(row, formatDate(version.fecha_entrenamiento));
+    const cell = document.createElement("td");
+    const button = modelText("button", "Ver");
+    button.type = "button";
+    button.dataset.consistencyModelId = String(version.id_modelo_consistencia);
+    button.disabled = Number(selectedModelId) === Number(version.id_modelo_consistencia);
+    cell.append(button);
+    row.append(cell);
+    body.append(row);
+  });
+}
+
+async function showConsistencyVersion(modelId) {
+  try {
+    const report = await api(`/consistency/history/${modelId}`);
+    renderConsistencyReport(report, { updateAlerts: false });
+  } catch (cause) {
+    setNotice("consistencyTrainingMessage", cause.message, "error");
+  }
+}
+
+function updateConsistencyBadge() {
+  const badge = $("alertBadge");
+  const highCount = consistencyItems.filter((item) => item.nivel_riesgo === "alto").length;
+  badge.textContent = String(highCount);
+  badge.hidden = highCount === 0;
+}
+
+function renderConsistencyAlerts() {
+  const container = $("consistencyItems");
+  const search = ($("consistencySearch")?.value || "").trim().toLocaleLowerCase("es-PE");
+  const selectedRisk = $("consistencyRiskFilter")?.value || "todos";
+  const filtered = consistencyItems.filter((item) => {
+    const matchesText = !search || `${item.sku} ${item.nombre}`.toLocaleLowerCase("es-PE").includes(search);
+    return matchesText && (selectedRisk === "todos" || item.nivel_riesgo === selectedRisk);
+  });
+  container.replaceChildren();
+  $("consistencyFilterCount").textContent = `Mostrando ${filtered.length} de ${consistencyItems.length}`;
+  if (!filtered.length) {
+    container.append(modelText("p", consistencyItems.length
+      ? "No hay perfiles que coincidan con los filtros."
+      : "No hay resultados. Entrena el árbol para evaluar el catálogo.", "muted pad"));
+    return;
+  }
+  filtered.forEach((item) => {
+    const row = document.createElement("article");
+    row.className = "alert-row";
+    const content = document.createElement("div");
+    const name = modelText("p", "", "name");
+    name.append(document.createTextNode(`${item.nombre} · ${item.sku} `));
+    const riskClass = { alto: "baja", medio: "media", bajo: "alta" }[item.nivel_riesgo] || "neutral";
+    const tag = modelText("span", `Prioridad ${item.nivel_riesgo}`, `tag ${riskClass}`);
+    name.append(tag);
+    const indicators = item.indicadores || {};
+    const detail = modelText("p",
+      `Semana ${item.semana} · ${indicators.capturas_disponible || 0} capturas consecutivas disponible · ${indicators.dias_publicacion || 0} días desde publicación`, "meta");
+    const reason = modelText("p", item.justificacion, "justif");
+    content.append(name, detail, reason);
+    row.append(content);
+    container.append(row);
+  });
+}
+
+async function trainConsistencyModel() {
+  const button = $("trainConsistencyButton");
+  button.disabled = true;
+  setNotice("consistencyTrainingMessage", "Preparando el historial y entrenando el árbol…", "loading");
+  try {
+    const report = await api("/consistency/train", {
+      method: "POST",
+      body: JSON.stringify({
+        profundidad_maxima: Number($("consistencyDepth").value),
+        proporcion_prueba: Number($("consistencyTestSize").value),
+      }),
+    });
+    renderConsistencyReport(report);
+    setNotice("consistencyTrainingMessage", `Evaluación ${report.model.version} guardada para ${report.items.length} perfiles disponibles.`, "success");
+  } catch (cause) {
+    setNotice("consistencyTrainingMessage", cause.message, "error");
+  } finally {
+    button.disabled = false;
   }
 }
 
@@ -707,7 +1080,7 @@ function modelText(tagName, value, className = "") {
 async function trainModel() {
   const button = $("trainModelButton");
   button.disabled = true;
-  setNotice("modelMessage", "Preparando los datos y entrenando el modelo…");
+  setNotice("modelMessage", "Preparando los datos y entrenando el modelo…", "loading");
   const depth = $("modelDepth").value;
   try {
     const model = await api("/models/train", {
@@ -721,13 +1094,13 @@ async function trainModel() {
     });
     setNotice("modelMessage", model.estado === "publicable"
       ? `Entrenamiento ${model.version} finalizado. Revisa las métricas y publícalo desde el historial si estás de acuerdo.`
-      : `Entrenamiento ${model.version} finalizado, pero Accuracy no alcanza el umbral; queda guardado sin publicar.`, model.estado === "publicable" ? "success" : "error");
+      : `Entrenamiento ${model.version} finalizado, pero Accuracy no alcanza el umbral; queda guardado sin publicar.`, model.estado === "publicable" ? "success" : "warning");
     await loadModels();
     // Muestra de inmediato la evaluación de la versión recién entrenada, esté o no publicable.
     renderModelDetails(model);
     setNotice("modelMessage", model.estado === "publicable"
       ? `Entrenamiento ${model.version} finalizado. Revisa las métricas y publícalo desde el historial si estás de acuerdo.`
-      : `Entrenamiento ${model.version} finalizado, pero Accuracy no alcanza el umbral; queda guardado sin publicar.`, model.estado === "publicable" ? "success" : "error");
+      : `Entrenamiento ${model.version} finalizado, pero Accuracy no alcanza el umbral; queda guardado sin publicar.`, model.estado === "publicable" ? "success" : "warning");
   } catch (cause) {
     setNotice("modelMessage", cause.message, "error");
   } finally {
@@ -736,7 +1109,7 @@ async function trainModel() {
 }
 
 async function activateModel(modelId) {
-  setNotice("modelMessage", "Verificando el artefacto, publicando el modelo y calculando predicciones…");
+  setNotice("modelMessage", "Verificando el artefacto, publicando el modelo y calculando predicciones…", "loading");
   try {
     const result = await api(`/models/${modelId}/activate`, { method: "POST", body: JSON.stringify({}) });
     setNotice("modelMessage", `${result.version} publicado. Se generaron ${result.predicciones_generadas} predicciones para mascotas disponibles.`, "success");
@@ -748,7 +1121,7 @@ async function activateModel(modelId) {
 }
 
 async function refreshPredictions(modelId) {
-  setNotice("modelMessage", "Calculando predicciones para la última captura completa…");
+  setNotice("modelMessage", "Calculando predicciones para la última captura completa…", "loading");
   try {
     const result = await api(`/models/${modelId}/refresh-predictions`, {
       method: "POST", body: JSON.stringify({}),
@@ -869,6 +1242,17 @@ function formatPetAge(months, estimated) {
 document.addEventListener("DOMContentLoaded", async () => {
   if (window.lucide) window.lucide.createIcons();
   applyTheme(localStorage.getItem("wuf.theme") || "sistema");
+  document.querySelectorAll("[data-model-tab]").forEach((tab) => {
+    tab.addEventListener("click", () => selectModelTab(tab.dataset.modelTab));
+    tab.addEventListener("keydown", (event) => {
+      if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+        event.preventDefault();
+        const next = tab.dataset.modelTab === "adoption" ? "consistency" : "adoption";
+        selectModelTab(next);
+        $(next === "adoption" ? "adoptionTab" : "consistencyTab").focus();
+      }
+    });
+  });
   document.querySelectorAll(".navitem").forEach((nav) => {
     nav.addEventListener("click", (event) => { event.preventDefault(); showView(nav.dataset.view); });
   });
@@ -878,13 +1262,19 @@ document.addEventListener("DOMContentLoaded", async () => {
     const file = event.currentTarget.files?.[0];
     $("collectionFileName").textContent = file ? file.name : "No hay archivo seleccionado.";
     $("runCollectionButton").disabled = !file;
-    $("collectionMessage").textContent = "";
-    $("collectionMessage").dataset.state = "";
+    setNotice("collectionMessage");
   });
   $("runCollectionButton").addEventListener("click", runCollection);
   $("generateDatasetButton").addEventListener("click", generateDataset);
   $("exportDatasetButton").addEventListener("click", exportDataset);
   $("trainModelButton").addEventListener("click", trainModel);
+  $("trainConsistencyButton").addEventListener("click", trainConsistencyModel);
+  $("consistencyHistory").addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-consistency-model-id]");
+    if (button) showConsistencyVersion(Number(button.dataset.consistencyModelId));
+  });
+  $("consistencySearch").addEventListener("input", renderConsistencyAlerts);
+  $("consistencyRiskFilter").addEventListener("change", renderConsistencyAlerts);
   $("catalogSearch").addEventListener("input", applyCatalogFilters);
   $("catalogStateFilter").addEventListener("change", applyCatalogFilters);
   $("catalogPriorityFilter").addEventListener("change", applyCatalogFilters);
@@ -914,3 +1304,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     sessionStorage.removeItem("wuf.session");
   }
 });
+
+// Alterna los paneles de entrenamiento y mantiene accesible el estado activo.
+function selectModelTab(name) {
+  const adoption = name === "adoption";
+  $("adoptionPanel").hidden = !adoption;
+  $("consistencyPanel").hidden = adoption;
+  $("adoptionTab").classList.toggle("active", adoption);
+  $("consistencyTab").classList.toggle("active", !adoption);
+  $("adoptionTab").setAttribute("aria-selected", String(adoption));
+  $("consistencyTab").setAttribute("aria-selected", String(!adoption));
+  $("adoptionTab").tabIndex = adoption ? 0 : -1;
+  $("consistencyTab").tabIndex = adoption ? -1 : 0;
+}

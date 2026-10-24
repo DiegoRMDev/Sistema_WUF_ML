@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>WUF Predict</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="styles.css?v=hu04-toast-layout-2">
 <script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
 </head>
 <body>
@@ -16,7 +16,6 @@
     <p class="sub">Soporte a decisiones para la adopción responsable</p>
     <div class="field"><label for="email">Correo electrónico</label><input id="email" type="email" autocomplete="username" required placeholder="nombre@wuf.pe"></div>
     <div class="field"><label for="password">Contraseña</label><input id="password" type="password" autocomplete="current-password" required></div>
-    <p class="error" id="loginError"></p>
     <button class="primary" type="submit" style="width:100%;justify-content:center;"><i data-lucide="log-in"></i>Iniciar sesión</button>
     <details>
       <summary>Acceso al sistema</summary>
@@ -39,7 +38,7 @@
       <a class="navitem" href="#recoleccion" data-view="recoleccion" data-roles="analista"><i data-lucide="refresh-cw"></i>Recolección</a>
       <a class="navitem" href="#dataset" data-view="dataset" data-roles="analista"><i data-lucide="database"></i>Dataset histórico</a>
       <a class="navitem" href="#entrenamiento" data-view="entrenamiento" data-roles="analista"><i data-lucide="brain"></i>Entrenamiento</a>
-      <a class="navitem" href="#alertas" data-view="alertas" data-roles="analista ayuda"><i data-lucide="bell"></i>Alertas <span class="badge">17</span></a>
+      <a class="navitem" href="#alertas" data-view="alertas" data-roles="analista ayuda"><i data-lucide="bell"></i>Alertas <span class="badge" id="alertBadge" hidden></span></a>
       <a class="navitem" href="#reporte" data-view="reporte" data-roles="analista marketing"><i data-lucide="bar-chart-3"></i>Reporte de priorización</a>
       <a class="navitem" href="#configuracion" data-view="configuracion" data-roles="analista marketing ayuda"><i data-lucide="settings"></i>Configuración</a>
     </nav>
@@ -104,7 +103,6 @@
     <section class="view hidden" id="view-catalogo">
       <h1>Catálogo con predicción</h1>
       <p class="lead" id="catalogLead">Las predicciones se calculan con el modelo vigente y se muestran para mascotas disponibles.</p>
-      <p class="notice" id="catalogMessage" role="status" aria-live="polite" hidden></p>
       <div class="catalog-filters" aria-label="Filtros visuales del catálogo">
         <label for="catalogSearch">Buscar por SKU o nombre</label>
         <input id="catalogSearch" type="search" maxlength="100" placeholder="Ej. WUF0001 o Arcanie" autocomplete="off">
@@ -146,7 +144,6 @@
         <button type="button" class="primary" id="runCollectionButton" disabled><i data-lucide="upload"></i>2. Importar archivo seleccionado</button>
         <span class="muted" id="collectionFileName">No hay archivo seleccionado.</span>
       </div>
-      <p class="muted" id="collectionMessage" role="status" aria-live="polite"></p>
       <div class="card tablewrap">
         <table>
           <thead><tr><th>Semana</th><th>Fecha de captura</th><th>Perfiles</th><th>Disponibles</th><th>No disponibles</th><th>Sin publicar</th><th>Estado</th></tr></thead>
@@ -163,7 +160,6 @@
     <section class="view hidden" id="view-dataset">
       <h1>Dataset histórico etiquetado</h1>
       <p class="lead">Comparación de capturas completas y etiqueta final derivada para cada mascota de la cohorte.</p>
-      <p class="notice" id="datasetMessage" role="status" aria-live="polite" hidden></p>
       <div class="card dataset-period">
         <label for="datasetFrom">Captura inicial</label>
         <select id="datasetFrom" aria-label="Captura inicial para el dataset"></select>
@@ -201,8 +197,12 @@
 
     <section class="view hidden" id="view-entrenamiento">
       <h1>Entrenamiento del modelo predictivo</h1>
+      <div class="model-tabs" role="tablist" aria-label="Tipo de modelo">
+        <button type="button" class="model-tab active" id="adoptionTab" role="tab" aria-selected="true" aria-controls="adoptionPanel" data-model-tab="adoption">Predicción de Adopción (Random Forest)</button>
+        <button type="button" class="model-tab" id="consistencyTab" role="tab" aria-selected="false" aria-controls="consistencyPanel" data-model-tab="consistency" tabindex="-1">Riesgo de desactualización (Árbol de Decisión)</button>
+      </div>
+      <div id="adoptionPanel" role="tabpanel" aria-labelledby="adoptionTab">
       <p class="lead">Random Forest para estimar la probabilidad de adopción de las mascotas.</p>
-      <p class="notice" id="modelMessage" role="status" aria-live="polite" hidden></p>
       <div class="card pad">
         <div class="card-head"><h2>Entrenar una versión</h2></div>
         <div class="formgrid model-form">
@@ -227,30 +227,57 @@
         <div class="card-head"><h2>Historial de versiones</h2></div>
         <div class="tablewrap"><table><thead><tr><th>Versión</th><th>Dataset</th><th>Estado</th><th>Accuracy</th><th>Entrenamiento</th><th>Acción</th></tr></thead><tbody id="modelHistory"><tr><td colspan="6" class="muted">Cargando modelos…</td></tr></tbody></table></div>
       </div>
+      </div>
+      <div id="consistencyPanel" role="tabpanel" aria-labelledby="consistencyTab" hidden>
+      <p class="lead">Prioriza la revisión de perfiles disponibles según su antigüedad y permanencia en capturas recientes.</p>
+      <div class="card pad" id="consistencyTrainingPanel">
+        <div class="card-head"><h2>Entrenamiento y evaluación</h2></div>
+        <div class="consistency-training-options">
+          <label for="consistencyDepth">Profundidad máxima</label>
+          <select id="consistencyDepth" aria-describedby="consistencyParameterHelp">
+            <option value="1">1 nivel</option><option value="2">2 niveles</option>
+            <option value="3" selected>3 niveles</option><option value="4">4 niveles</option>
+          </select>
+          <label for="consistencyTestSize">Datos para prueba</label>
+          <select id="consistencyTestSize" aria-describedby="consistencyParameterHelp">
+            <option value="0.2">20 %</option><option value="0.25" selected>25 %</option>
+            <option value="0.3">30 %</option>
+          </select>
+        </div>
+        <p class="muted consistency-parameter-help" id="consistencyParameterHelp">El porcentaje indicado se reserva para prueba; el resto se usa para entrenar. La semilla se mantiene fija. El árbol aproxima la regla; Perfiles para revisión aplica la prioridad definida por la regla.</p>
+        <div class="toolbar consistency-train-actions"><button type="button" class="primary" id="trainConsistencyButton"><i data-lucide="git-branch"></i>Entrenar árbol y evaluar catálogo</button></div>
+        <div id="consistencyResults" hidden>
+        <p class="consistency-model-status" id="consistencyModelStatus" hidden></p>
+        <p class="muted" id="consistencyModelSummary"></p>
+        <div class="metricgrid" id="consistencyMetrics"></div>
+        <p class="muted" id="consistencyEvaluationNote" hidden></p>
+        <section class="tree-diagram-section" id="consistencyDiagramCard" hidden aria-labelledby="consistencyDiagramTitle">
+          <h2 id="consistencyDiagramTitle">Diagrama del árbol de decisión</h2>
+          <div class="tree-diagram-scroll" id="consistencyTreeDiagram"></div>
+        </section>
+        <div class="two" id="consistencyEvaluationDetails">
+          <div><h2>Contribución de variables al árbol</h2><p class="muted">Mide cuánto contribuye cada variable a las divisiones del árbol.</p><div class="imp" id="consistencyImportance"></div></div>
+          <div><h2>Matriz de confusión del árbol (prueba)</h2><div class="tablewrap"><table><thead><tr><th>Riesgo real</th><th>Bajo</th><th>Medio</th><th>Alto</th></tr></thead><tbody id="consistencyConfusion"></tbody></table></div></div>
+        </div>
+        <details class="consistency-rules" id="consistencyRulesDetails" hidden><summary>Reglas aprendidas por el árbol</summary><pre id="consistencyRules" class="rules"></pre></details>
+        </div>
+      </div>
+      <div class="card consistency-history">
+        <div class="card-head"><h2>Historial de árboles</h2></div>
+          <div class="tablewrap"><table><thead><tr><th>Versión</th><th>Estado</th><th>Accuracy</th><th>F1 macro</th><th>Entrenamiento</th><th>Acción</th></tr></thead><tbody id="consistencyHistory"><tr><td colspan="6" class="muted">Todavía no hay versiones.</td></tr></tbody></table></div>
+      </div>
+      </div>
     </section>
 
     <section class="view hidden" id="view-alertas">
-      <h1>Alertas de desactualización</h1>
-      <p class="lead">17 perfiles disponibles con riesgo de estado desactualizado · 12 de riesgo alto</p>
-      <div class="card">
-<div class="alert-row"><div><p class="name">Arcanie <span class="tag baja">Riesgo alto</span></p><p class="meta">Publicada como disponible en las tres capturas (semanas seis a ocho) con orden de publicación 189.</p><p class="justif">El perfil se encuentra entre los más antiguos del catálogo y no registra cambio de estado; se recomienda confirmar si la mascota sigue disponible.</p></div><button type="button"><i data-lucide="check"></i>Verificar</button></div>
-<div class="alert-row"><div><p class="name">Bella <span class="tag baja">Riesgo alto</span></p><p class="meta">Publicada como disponible en las tres capturas (semanas seis a ocho) con orden de publicación 188.</p><p class="justif">El perfil se encuentra entre los más antiguos del catálogo y no registra cambio de estado; se recomienda confirmar si la mascota sigue disponible.</p></div><button type="button"><i data-lucide="check"></i>Verificar</button></div>
-<div class="alert-row"><div><p class="name">Bella <span class="tag baja">Riesgo alto</span></p><p class="meta">Publicada como disponible en las tres capturas (semanas seis a ocho) con orden de publicación 187.</p><p class="justif">El perfil se encuentra entre los más antiguos del catálogo y no registra cambio de estado; se recomienda confirmar si la mascota sigue disponible.</p></div><button type="button"><i data-lucide="check"></i>Verificar</button></div>
-<div class="alert-row"><div><p class="name">Bongo <span class="tag baja">Riesgo alto</span></p><p class="meta">Publicada como disponible en las tres capturas (semanas seis a ocho) con orden de publicación 185.</p><p class="justif">El perfil se encuentra entre los más antiguos del catálogo y no registra cambio de estado; se recomienda confirmar si la mascota sigue disponible.</p></div><button type="button"><i data-lucide="check"></i>Verificar</button></div>
-<div class="alert-row"><div><p class="name">Chicho <span class="tag baja">Riesgo alto</span></p><p class="meta">Publicada como disponible en las tres capturas (semanas seis a ocho) con orden de publicación 184.</p><p class="justif">El perfil se encuentra entre los más antiguos del catálogo y no registra cambio de estado; se recomienda confirmar si la mascota sigue disponible.</p></div><button type="button"><i data-lucide="check"></i>Verificar</button></div>
-<div class="alert-row"><div><p class="name">Candy <span class="tag baja">Riesgo alto</span></p><p class="meta">Publicada como disponible en las tres capturas (semanas seis a ocho) con orden de publicación 183.</p><p class="justif">El perfil se encuentra entre los más antiguos del catálogo y no registra cambio de estado; se recomienda confirmar si la mascota sigue disponible.</p></div><button type="button"><i data-lucide="check"></i>Verificar</button></div>
-<div class="alert-row"><div><p class="name">Chipi <span class="tag baja">Riesgo alto</span></p><p class="meta">Publicada como disponible en las tres capturas (semanas seis a ocho) con orden de publicación 182.</p><p class="justif">El perfil se encuentra entre los más antiguos del catálogo y no registra cambio de estado; se recomienda confirmar si la mascota sigue disponible.</p></div><button type="button"><i data-lucide="check"></i>Verificar</button></div>
-<div class="alert-row"><div><p class="name">China <span class="tag baja">Riesgo alto</span></p><p class="meta">Publicada como disponible en las tres capturas (semanas seis a ocho) con orden de publicación 181.</p><p class="justif">El perfil se encuentra entre los más antiguos del catálogo y no registra cambio de estado; se recomienda confirmar si la mascota sigue disponible.</p></div><button type="button"><i data-lucide="check"></i>Verificar</button></div>
-<div class="alert-row"><div><p class="name">Emilia <span class="tag baja">Riesgo alto</span></p><p class="meta">Publicada como disponible en las tres capturas (semanas seis a ocho) con orden de publicación 180.</p><p class="justif">El perfil se encuentra entre los más antiguos del catálogo y no registra cambio de estado; se recomienda confirmar si la mascota sigue disponible.</p></div><button type="button"><i data-lucide="check"></i>Verificar</button></div>
-<div class="alert-row"><div><p class="name">Sol <span class="tag baja">Riesgo alto</span></p><p class="meta">Publicada como disponible en las tres capturas (semanas seis a ocho) con orden de publicación 179.</p><p class="justif">El perfil se encuentra entre los más antiguos del catálogo y no registra cambio de estado; se recomienda confirmar si la mascota sigue disponible.</p></div><button type="button"><i data-lucide="check"></i>Verificar</button></div>
-<div class="alert-row"><div><p class="name">Negra <span class="tag baja">Riesgo alto</span></p><p class="meta">Publicada como disponible en las tres capturas (semanas seis a ocho) con orden de publicación 178.</p><p class="justif">El perfil se encuentra entre los más antiguos del catálogo y no registra cambio de estado; se recomienda confirmar si la mascota sigue disponible.</p></div><button type="button"><i data-lucide="check"></i>Verificar</button></div>
-<div class="alert-row"><div><p class="name">Paolo <span class="tag baja">Riesgo alto</span></p><p class="meta">Publicada como disponible en las tres capturas (semanas seis a ocho) con orden de publicación 177.</p><p class="justif">El perfil se encuentra entre los más antiguos del catálogo y no registra cambio de estado; se recomienda confirmar si la mascota sigue disponible.</p></div><button type="button"><i data-lucide="check"></i>Verificar</button></div>
-<div class="alert-row"><div><p class="name">Tiffany <span class="tag media">Riesgo medio</span></p><p class="meta">Sin historial de estado en las capturas anteriores; publicación reciente (orden 5).</p><p class="justif">El perfil aún no cuenta con capturas suficientes para validar su consistencia; se recomienda verificar los datos publicados.</p></div><button type="button"><i data-lucide="check"></i>Verificar</button></div>
-<div class="alert-row"><div><p class="name">Peluche <span class="tag media">Riesgo medio</span></p><p class="meta">Sin historial de estado en las capturas anteriores; publicación reciente (orden 4).</p><p class="justif">El perfil aún no cuenta con capturas suficientes para validar su consistencia; se recomienda verificar los datos publicados.</p></div><button type="button"><i data-lucide="check"></i>Verificar</button></div>
-<div class="alert-row"><div><p class="name">Becerra <span class="tag media">Riesgo medio</span></p><p class="meta">Sin historial de estado en las capturas anteriores; publicación reciente (orden 3).</p><p class="justif">El perfil aún no cuenta con capturas suficientes para validar su consistencia; se recomienda verificar los datos publicados.</p></div><button type="button"><i data-lucide="check"></i>Verificar</button></div>
-<div class="alert-row"><div><p class="name">Bolita <span class="tag media">Riesgo medio</span></p><p class="meta">Sin historial de estado en las capturas anteriores; publicación reciente (orden 2).</p><p class="justif">El perfil aún no cuenta con capturas suficientes para validar su consistencia; se recomienda verificar los datos publicados.</p></div><button type="button"><i data-lucide="check"></i>Verificar</button></div>
-<div class="alert-row"><div><p class="name">Gordi <span class="tag media">Riesgo medio</span></p><p class="meta">Sin historial de estado en las capturas anteriores; publicación reciente (orden 1).</p><p class="justif">El perfil aún no cuenta con capturas suficientes para validar su consistencia; se recomienda verificar los datos publicados.</p></div><button type="button"><i data-lucide="check"></i>Verificar</button></div>
+      <h1>Perfiles para revisión</h1>
+      <p class="lead" id="consistencyAlertsSummary">Prioridades de revisión calculadas para la última captura completa.</p>
+      <div class="consistency-filters">
+        <label for="consistencySearch">Buscar por SKU o nombre</label><input id="consistencySearch" type="search" placeholder="SKU o nombre">
+        <label for="consistencyRiskFilter">Riesgo</label><select id="consistencyRiskFilter"><option value="todos">Todos</option><option value="alto">Alto</option><option value="medio">Medio</option><option value="bajo">Bajo</option></select>
+        <span class="muted" id="consistencyFilterCount">—</span>
       </div>
+      <div class="card" id="consistencyItems" aria-live="polite"><p class="muted pad">Todavía no hay evaluaciones.</p></div>
     </section>
 
     <section class="view hidden" id="view-reporte">
@@ -544,6 +571,7 @@
 </div>
 
 <script src="config.js"></script>
-<script src="app.js"></script>
+<div id="toastRegion" class="toast-region" aria-label="Mensajes del sistema"></div>
+<script src="app.js?v=hu04-toast-layout-2"></script>
 </body>
 </html>

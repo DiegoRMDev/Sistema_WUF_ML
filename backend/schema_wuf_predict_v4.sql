@@ -1,12 +1,13 @@
 -- Instalador único del esquema limpio v4 para PostgreSQL 16.
--- Crea primero wuf_predict_v4 desde pgAdmin y ejecuta este archivo en su Query Tool.
+-- Crea primero wuf_predict_v5 desde pgAdmin y ejecuta este archivo en su Query Tool.
 -- Este script crea las tablas dentro de la base seleccionada; no crea ni elimina bases.
 
--- WUF Predict v4: esquema completo para HU01/HU02/HU03 sobre PostgreSQL 16.
--- Ejecutar SOLO conectado a una base vacía llamada wuf_predict_v4.
+-- WUF Predict v4: esquema completo para HU01/HU02/HU03/HU04 sobre PostgreSQL 16.
+-- Ejecutar SOLO conectado a una base vacía llamada wuf_predict_v5.
 -- No crea ni elimina bases; conserva backend/schema.sql para la instalación anterior.
--- Incluye desde el inicio las columnas, restricciones e índices de HU03.
--- Las columnas, restricciones e índices de HU03 ya están integrados aquí; no ejecutes upgrade_hu03_ml.sql después.
+-- Incluye desde el inicio las estructuras de HU03 y HU04, incluida la fuente de regla v2.
+-- En una base nueva, ejecuta solo este archivo: no ejecutes upgrades HU03/HU04 después.
+-- Los archivos upgrade_hu04_*.sql se reservan para bases v4 existentes que aún los necesiten.
 -- HU01 recibirá la fecha de captura del CSV, mientras fecha_inicio/fecha_fin
 -- auditan el momento real de importación. La semana se calcula en la aplicación
 -- mediante calendario ISO y se verifica aquí contra la fecha de captura.
@@ -291,5 +292,56 @@ CREATE TABLE alerta_desactualizacion (
     mensaje VARCHAR(255) NOT NULL,
     estado VARCHAR(15) NOT NULL
 );
+
+-- HU04 conserva versiones del árbol y resultados provisionales auditables.
+CREATE TABLE modelo_consistencia (
+    id_modelo_consistencia SERIAL PRIMARY KEY,
+    version VARCHAR(10) NOT NULL UNIQUE,
+    algoritmo VARCHAR(40) NOT NULL DEFAULT 'DecisionTreeClassifier',
+    fuente_etiquetas VARCHAR(40) NOT NULL,
+    id_ejecucion_referencia INTEGER NOT NULL REFERENCES ejecucion_recoleccion (id_ejecucion),
+    id_usuario INTEGER NULL REFERENCES usuario (id_usuario),
+    fecha_entrenamiento TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    accuracy_score DECIMAL(5,4) NOT NULL CHECK (accuracy_score BETWEEN 0 AND 1),
+    f1_macro_score DECIMAL(5,4) NOT NULL CHECK (f1_macro_score BETWEEN 0 AND 1),
+    nro_registros_entrenamiento INTEGER NOT NULL CHECK (nro_registros_entrenamiento > 0),
+    nro_registros_prueba INTEGER NOT NULL CHECK (nro_registros_prueba > 0),
+    matriz_confusion JSONB NOT NULL,
+    importancia_variables JSONB NOT NULL,
+    reglas_arbol TEXT NOT NULL,
+    metadatos_entrenamiento JSONB NOT NULL,
+    artefacto_ruta VARCHAR(255) NOT NULL,
+    artefacto_sha256 CHAR(64) NOT NULL CHECK (artefacto_sha256 ~ '^[0-9a-f]{64}$'),
+    es_vigente BOOLEAN NOT NULL DEFAULT FALSE,
+    -- La instalación limpia solo registra la regla que usa actualmente el sistema.
+    CONSTRAINT ck_modelo_consistencia_fuente CHECK (fuente_etiquetas = 'prioridad_revision_hu04_v2'),
+    CONSTRAINT ck_modelo_consistencia_algoritmo CHECK (algoritmo = 'DecisionTreeClassifier')
+);
+CREATE UNIQUE INDEX uq_modelo_consistencia_vigente
+    ON modelo_consistencia (es_vigente) WHERE es_vigente;
+
+CREATE TABLE evaluacion_consistencia (
+    id_evaluacion SERIAL PRIMARY KEY,
+    id_modelo_consistencia INTEGER NOT NULL
+        REFERENCES modelo_consistencia (id_modelo_consistencia) ON DELETE CASCADE,
+    id_mascota INTEGER NOT NULL REFERENCES mascota (id_mascota),
+    id_snapshot INTEGER NOT NULL REFERENCES snapshot_catalogo (id_snapshot),
+    id_ejecucion INTEGER NOT NULL REFERENCES ejecucion_recoleccion (id_ejecucion),
+    fecha_evaluacion DATE NOT NULL,
+    nivel_riesgo VARCHAR(10) NOT NULL,
+    fuente_etiqueta VARCHAR(40) NOT NULL,
+    justificacion VARCHAR(500) NOT NULL,
+    indicadores JSONB NOT NULL,
+    CONSTRAINT ck_evaluacion_consistencia_riesgo CHECK (nivel_riesgo IN ('bajo', 'medio', 'alto')),
+    -- La instalación limpia solo registra evaluaciones calculadas con la regla vigente.
+    CONSTRAINT ck_evaluacion_consistencia_fuente CHECK (fuente_etiqueta = 'prioridad_revision_hu04_v2'),
+    CONSTRAINT fk_evaluacion_consistencia_snapshot_mascota
+        FOREIGN KEY (id_ejecucion, id_mascota)
+        REFERENCES snapshot_catalogo (id_ejecucion, id_mascota),
+    CONSTRAINT uq_evaluacion_consistencia_modelo_mascota
+        UNIQUE (id_modelo_consistencia, id_ejecucion, id_mascota)
+);
+CREATE INDEX ix_evaluacion_consistencia_ejecucion_riesgo
+    ON evaluacion_consistencia (id_ejecucion, nivel_riesgo);
 
 COMMIT;

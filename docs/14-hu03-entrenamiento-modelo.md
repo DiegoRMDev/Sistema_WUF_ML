@@ -86,7 +86,7 @@ Los archivos `backend/app/domain/model_training.py`, `backend/app/services/model
 ## Configuración inicial en Windows
 
 1. Haz una copia de seguridad de PostgreSQL.
-2. Para crear la base de demostración nueva desde pgAdmin, crea primero una base vacía `wuf_predict_v4` y ejecuta `backend/schema_wuf_predict_v4.sql`. Este archivo ya integra las estructuras HU03 en el esquema. No ejecutes después la migración, que queda para bases v2/v3 antiguas.
+2. Para la base de demostración limpia actual, crea primero `wuf_predict_v5` desde pgAdmin y ejecuta `backend/schema_wuf_predict_v4.sql`. El archivo conserva v4 como versión del esquema e integra HU01–HU04. No ejecutes después las migraciones, que quedan para bases antiguas que las necesiten.
 3. Desde PowerShell entra a `backend/`, activa `.venv` y actualiza las dependencias del proyecto:
 
    ```powershell

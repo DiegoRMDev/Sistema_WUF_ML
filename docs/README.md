@@ -1,6 +1,6 @@
 # WUF Predict - documentación de arquitectura
 
-Este directorio convierte el avance académico y el prototipo navegable en una guía de implementación. El PDF es la fuente de requisitos, historias de usuario, modelo de datos y tecnologías; `../prototipo/` es referencia visual y de flujo. Para HU01, el Analista importa CSV manualmente como sustituto acordado de la extracción WUF. HU02 compara snapshots y deriva “Permanece / Salió del catálogo”; HU03 excluye las etiquetas indeterminadas sin modificar la exportación auditable.
+Este directorio convierte el avance académico y el prototipo navegable en una guía de implementación. El PDF es la fuente de requisitos, historias de usuario, modelo de datos y tecnologías; `../prototipo/` es referencia visual y de flujo. Para HU01, el Analista importa CSV manualmente como sustituto acordado de la extracción WUF. HU02 compara snapshots y deriva “Permanece / Salió del catálogo”; HU03 excluye las etiquetas indeterminadas sin modificar la exportación auditable. HU04 usa por ahora etiquetas demo para el árbol de consistencia y requiere verificaciones humanas antes de considerarlo validado.
 
 ## Documentos
 
@@ -13,6 +13,7 @@ Este directorio convierte el avance académico y el prototipo navegable en una g
 7. [Guía de inicio local](11-inicio-local.md): requisitos, instalación de dependencias y pasos para arrancar backend y frontend en Windows.
 8. [HU02 — guía del Dataset Histórico](13-hu02-dataset-historico.md): reglas de cohorte, endpoints, interfaz, escenarios demo y tratamiento de filas indeterminadas.
 9. [HU03 — Entrenamiento y predicción](14-hu03-entrenamiento-modelo.md): preparación de datos, Random Forest, métricas, artefactos, migración y uso de la interfaz.
+10. [HU04 — Consistencia del catálogo](15-hu04-consistencia.md): DecisionTreeClassifier, etiquetas demo, métricas, diagrama del árbol, permisos y persistencia.
 
 ## Convenciones
 
@@ -21,7 +22,7 @@ Este directorio convierte el avance académico y el prototipo navegable en una g
 - El prototipo guía la estructura visual, la navegación y el flujo esperado; sus cifras y registros estáticos son de muestra. Los datos funcionales se consultan desde PostgreSQL.
 - El backend obtiene la fecha de captura del nombre validado del CSV, calcula semana ISO y audita aparte el momento de importación.
 - La salida del catálogo que HU02 deriva comparando snapshots es una etiqueta proxy y no confirma adopción real.
-- `wuf_predict` y las bases anteriores se conservan. Para preparar una base limpia `wuf_predict_v4` desde pgAdmin, crea la base y ejecuta [`../backend/schema_wuf_predict_v4.sql`](../backend/schema_wuf_predict_v4.sql), que integra directamente el esquema completo HU01–HU03. El archivo configura tablas en una base vacía; no crea la base. `upgrade_hu03_ml.sql` queda para bases v2/v3 antiguas. Los CSV variables mantienen 180→165→190 y usan supuestos sintéticos para demostrar asociaciones entre atributos y salida del catálogo, no adopciones reales.
+- `wuf_predict` y las bases anteriores se conservan. Para preparar la base limpia `wuf_predict_v5` desde pgAdmin, crea la base y ejecuta [`../backend/schema_wuf_predict_v4.sql`](../backend/schema_wuf_predict_v4.sql), que integra el esquema final HU01–HU04 y acepta solo la regla HU04 v2. El nombre v4 del archivo identifica la versión del esquema; no es el nombre de la base. No ejecutes migraciones sobre esa base nueva. Los archivos `upgrade_hu04_*.sql` son solo para bases existentes que necesiten conservar historial anterior; `upgrade_hu03_ml.sql` queda para bases v2/v3 antiguas. Los CSV de HU02/HU03 y las etiquetas HU04 son sintéticos; no representan adopciones ni verificaciones reales.
 
 ## Orden de lectura
 
