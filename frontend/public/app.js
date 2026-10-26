@@ -6,6 +6,7 @@ const ROLE_LABELS = {
   ayuda: "Área de Ayuda",
 };
 const API_BASE = window.WUF_CONFIG?.apiBaseUrl?.replace(/\/$/, "");
+let currentPrioritizationReport = null;
 
 function $(id) { return document.getElementById(id); }
 const toastEntries = new Map();
@@ -176,6 +177,7 @@ function showView(name) {
   }
   if (name === "alertas") loadConsistencyReport();
   if (name === "catalogo") loadCatalog();
+  if (name === "reporte") loadPrioritizationReport();
 }
 
 function openSidebar() {
@@ -216,6 +218,19 @@ function formatCaptureDate(value) {
   if (Number.isNaN(parsed.getTime())) return "—";
   return new Intl.DateTimeFormat("es-PE", {
     dateStyle: "short", timeZone: "UTC",
+  }).format(parsed);
+}
+
+function formatReportDate(value) {
+  if (!value) return "—";
+  // PostgreSQL guarda estas horas como hora local de Lima sin zona; se explicita -05:00 al mostrarlas.
+  const normalized = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(value)
+    ? value.replace(" ", "T")
+    : `${value.replace(" ", "T")}-05:00`;
+  const parsed = new Date(normalized);
+  if (Number.isNaN(parsed.getTime())) return "—";
+  return new Intl.DateTimeFormat("es-PE", {
+    dateStyle: "short", timeStyle: "short", timeZone: "America/Lima",
   }).format(parsed);
 }
 
@@ -1239,6 +1254,209 @@ function formatPetAge(months, estimated) {
   return `${age}${estimated ? " (est.)" : ""}`;
 }
 
+async function loadPrioritizationReport() {
+  const body = $("reportRows");
+  currentPrioritizationReport = null;
+  void loadPrioritizationHistory();
+  $("reportLead").textContent = "Cargando la última captura y las predicciones del modelo vigente…";
+  $("reportEmpty").hidden = true;
+  $("reportChartCard").hidden = true;
+  $("reportToolbar").hidden = true;
+  $("reportTotal").textContent = "";
+  body.replaceChildren(modelTableMessage("Cargando reporte…", 10));
+  setNotice("reportMessage");
+  try {
+    const report = await api("/reports/current");
+    if (report.estado !== "listo") {
+      $("reportLead").textContent = "El reporte semanal aún no está disponible.";
+      $("reportEmpty").textContent = report.mensaje || "No hay información para mostrar.";
+      $("reportEmpty").hidden = false;
+      body.replaceChildren(modelTableMessage(report.mensaje || "No hay datos para mostrar.", 10));
+      return;
+    }
+    currentPrioritizationReport = report;
+    $("reportLead").textContent = `Semana ${report.semana} · captura ${formatCaptureDate(report.fecha_captura)} · ${report.total} mascotas disponibles · modelo v${report.modelo_version}.`;
+    $("reportTotal").textContent = `${report.total} registros`;
+    renderPrioritizationChart(report.prioridades, report.total);
+    $("reportChartCard").hidden = false;
+    $("reportToolbar").hidden = false;
+    renderPrioritizationRows(report.items);
+  } catch (cause) {
+    $("reportLead").textContent = "No se pudo cargar el reporte semanal.";
+    $("reportEmpty").textContent = cause.message;
+    $("reportEmpty").hidden = false;
+    body.replaceChildren(modelTableMessage("No se pudo cargar el reporte.", 10));
+    setNotice("reportMessage", cause.message, "error");
+  }
+}
+
+async function loadPrioritizationHistory() {
+  const body = $("reportHistoryRows");
+  body.replaceChildren(modelTableMessage("Cargando historial…", 7));
+  try {
+    const result = await api("/reports/history");
+    renderPrioritizationHistory(result.items || []);
+  } catch (cause) {
+    body.replaceChildren(modelTableMessage("No se pudo cargar el historial de reportes.", 7));
+    setNotice("reportHistory", cause.message, "error");
+  }
+}
+
+function renderPrioritizationHistory(items) {
+  const body = $("reportHistoryRows");
+  body.replaceChildren();
+  if (!items.length) {
+    body.replaceChildren(modelTableMessage("Aún no hay reportes guardados. Exporta el reporte actual como PDF o Excel para registrarlo aquí.", 7));
+    return;
+  }
+  items.forEach((report) => {
+    const row = document.createElement("tr");
+    appendTextCell(row, formatReportDate(report.fecha_generacion));
+    appendTextCell(row, `Semana ${report.semana}`);
+    appendTextCell(row, `v${report.modelo_version}`);
+    appendTextCell(row, String(report.formato).toUpperCase());
+    appendTextCell(row, String(report.total), "num");
+    appendTextCell(row, report.usuario || "—");
+    const action = document.createElement("td");
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "report-history-action";
+    button.dataset.reportHistoryId = String(report.id_reporte);
+    button.dataset.reportFormat = String(report.formato).toLowerCase();
+    button.textContent = `Descargar ${String(report.formato).toUpperCase()}`;
+    action.append(button);
+    row.append(action);
+    body.append(row);
+  });
+}
+
+async function downloadSavedReport(reportId, format, button) {
+  button.disabled = true;
+  try {
+    const headers = new Headers();
+    const current = session();
+    if (current?.accessToken) headers.set("Authorization", `Bearer ${current.accessToken}`);
+    const response = await fetch(`${API_BASE}/reports/history/${encodeURIComponent(reportId)}/export`, { headers });
+    if (!response.ok) {
+      const data = await response.json().catch(() => null);
+      throw new Error(data?.detail?.message || "No se pudo recuperar el reporte.");
+    }
+    const blob = await response.blob();
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `reporte_priorizacion_${reportId}.${format}`;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+    setNotice("reportHistory", `Reporte ${format.toUpperCase()} descargado.`, "success");
+  } catch (cause) {
+    setNotice("reportHistory", cause.message, "error");
+  } finally {
+    button.disabled = false;
+  }
+}
+
+function renderPrioritizationChart(counts, total) {
+  const entries = [
+    ["alta", "reportHighCount", "reportHighBar"],
+    ["media", "reportMediumCount", "reportMediumBar"],
+    ["baja", "reportLowCount", "reportLowBar"],
+  ];
+  const maximum = Math.max(1, ...entries.map(([key]) => Number(counts[key]) || 0));
+  entries.forEach(([key, countId, barId]) => {
+    const count = Number(counts[key]) || 0;
+    $(countId).textContent = String(count);
+    $(barId).style.height = `${Math.max(8, Math.round((count / maximum) * 112))}px`;
+    $(barId).setAttribute("aria-label", `${count} mascotas con prioridad ${key}`);
+  });
+  $("reportBars").setAttribute("aria-label", `Distribución de ${total} mascotas por prioridad`);
+}
+
+function renderPrioritizationRows(items) {
+  const body = $("reportRows");
+  body.replaceChildren();
+  items.forEach((pet) => {
+    const row = document.createElement("tr");
+    row.dataset.reportPet = "true";
+    row.dataset.search = normalizeCatalogSearch(`${pet.sku} ${pet.nombre}`);
+    row.dataset.priority = String(pet.nivel_prioridad || "").toLocaleLowerCase("es-PE");
+    appendTextCell(row, pet.sku);
+    appendTextCell(row, pet.nombre);
+    appendTextCell(row, pet.especie);
+    appendTextCell(row, pet.sexo === "H" ? "Hembra" : pet.sexo === "M" ? "Macho" : pet.sexo);
+    appendTextCell(row, formatPetAge(pet.edad_meses, pet.edad_estimada));
+    appendTextCell(row, pet.tamano);
+    appendTextCell(row, pet.condicion_especial ? (pet.condicion_detalle || "Condición especial") : "Ninguna", "wrap");
+    appendTextCell(row, String(pet.orden_publicacion), "num");
+    appendTextCell(row, formatMetric(pet.probabilidad_adopcion), "num");
+    const priorityCell = document.createElement("td");
+    const priorityName = String(pet.nivel_prioridad || "").toLocaleLowerCase("es-PE");
+    const priorityTag = document.createElement("span");
+    priorityTag.className = `tag ${priorityName}`;
+    priorityTag.textContent = pet.nivel_prioridad;
+    priorityCell.append(priorityTag);
+    row.append(priorityCell);
+    body.append(row);
+  });
+  applyPrioritizationFilters();
+}
+
+function applyPrioritizationFilters() {
+  const body = $("reportRows");
+  const rows = [...body.querySelectorAll("tr[data-report-pet]")];
+  const query = normalizeCatalogSearch($("reportSearch").value.trim());
+  const priority = $("reportPriorityFilter").value;
+  body.querySelector("#reportNoMatches")?.remove();
+  let visible = 0;
+  rows.forEach((row) => {
+    const matches = (!query || row.dataset.search.includes(query))
+      && (!priority || row.dataset.priority === priority);
+    row.hidden = !matches;
+    if (matches) visible += 1;
+  });
+  $("reportFilterCount").textContent = `Mostrando ${visible} de ${rows.length}`;
+  if (rows.length && visible === 0) {
+    const empty = modelTableMessage("No hay mascotas que coincidan con los filtros.", 10);
+    empty.id = "reportNoMatches";
+    body.append(empty);
+  }
+}
+
+async function exportPrioritizationReport(format) {
+  if (!currentPrioritizationReport) return;
+  const button = $(format === "pdf" ? "exportReportPdf" : "exportReportXlsx");
+  button.disabled = true;
+  setNotice("reportExport", `Generando archivo ${format.toUpperCase()}…`, "loading");
+  try {
+    const headers = new Headers();
+    const current = session();
+    if (current?.accessToken) headers.set("Authorization", `Bearer ${current.accessToken}`);
+    const response = await fetch(`${API_BASE}/reports/export?formato=${format === "xlsx" ? "xlsx" : "pdf"}`, {
+      method: "POST", headers,
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => null);
+      throw new Error(data?.detail?.message || "No se pudo generar el archivo.");
+    }
+    const blob = await response.blob();
+    const link = document.createElement("a");
+    const date = String(currentPrioritizationReport.fecha_captura).replaceAll("-", "");
+    link.href = URL.createObjectURL(blob);
+    link.download = `reporte_priorizacion_semana_${currentPrioritizationReport.semana}_${date}.${format}`;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+    setNotice("reportExport", `Reporte ${format.toUpperCase()} descargado y registrado.`, "success");
+    void loadPrioritizationHistory();
+  } catch (cause) {
+    setNotice("reportExport", cause.message, "error");
+  } finally {
+    button.disabled = false;
+  }
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   if (window.lucide) window.lucide.createIcons();
   applyTheme(localStorage.getItem("wuf.theme") || "sistema");
@@ -1278,6 +1496,48 @@ document.addEventListener("DOMContentLoaded", async () => {
   $("catalogSearch").addEventListener("input", applyCatalogFilters);
   $("catalogStateFilter").addEventListener("change", applyCatalogFilters);
   $("catalogPriorityFilter").addEventListener("change", applyCatalogFilters);
+  $("reportSearch").addEventListener("input", applyPrioritizationFilters);
+  $("reportPriorityFilter").addEventListener("change", applyPrioritizationFilters);
+  $("reportHistoryRows").addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-report-history-id]");
+    if (button) downloadSavedReport(button.dataset.reportHistoryId, button.dataset.reportFormat, button);
+  });
+  $("reportChartCard").addEventListener("click", (event) => {
+    const button = event.target.closest(".report-help-button");
+    if (!button) return;
+    const help = button.closest(".report-help");
+    const shouldOpen = !help.classList.contains("is-open");
+    document.querySelectorAll("#reportChartCard .report-help.is-open").forEach((item) => {
+      item.classList.remove("is-open");
+      item.querySelector(".report-help-button")?.setAttribute("aria-expanded", "false");
+    });
+    if (shouldOpen) {
+      help.classList.add("is-open");
+      button.setAttribute("aria-expanded", "true");
+    }
+  });
+  $("reportChartCard").addEventListener("focusout", (event) => {
+    const help = event.target.closest(".report-help");
+    if (!help || help.contains(event.relatedTarget)) return;
+    help.classList.remove("is-open");
+    help.querySelector(".report-help-button")?.setAttribute("aria-expanded", "false");
+  });
+  document.addEventListener("click", (event) => {
+    if (event.target.closest("#reportChartCard .report-help")) return;
+    document.querySelectorAll("#reportChartCard .report-help.is-open").forEach((item) => {
+      item.classList.remove("is-open");
+      item.querySelector(".report-help-button")?.setAttribute("aria-expanded", "false");
+    });
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    document.querySelectorAll("#reportChartCard .report-help.is-open").forEach((item) => {
+      item.classList.remove("is-open");
+      item.querySelector(".report-help-button")?.setAttribute("aria-expanded", "false");
+    });
+  });
+  $("exportReportPdf").addEventListener("click", () => exportPrioritizationReport("pdf"));
+  $("exportReportXlsx").addEventListener("click", () => exportPrioritizationReport("xlsx"));
   $("datasetFrom").addEventListener("change", () => {
     if ($("datasetTo").value <= $("datasetFrom").value) {
       const nextCapture = (window.datasetSources || []).find((capture) =>

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>WUF Predict</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="styles.css?v=hu04-toast-layout-2">
+<link rel="stylesheet" href="styles.css?v=hu05-report-4">
 <script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
 </head>
 <body>
@@ -282,241 +282,54 @@
 
     <section class="view hidden" id="view-reporte">
       <h1>Reporte de priorización</h1>
-      <p class="lead">Semana 8 · 115 mascotas disponibles ordenadas por prioridad de difusión</p>
-      <div class="card pad chart">
-        <div class="bars">
-          <div class="bar-col"><div class="n">53</div><div class="bar" style="background:var(--alta);height:89px"></div><div class="l">Alta</div></div>
-          <div class="bar-col"><div class="n">55</div><div class="bar" style="background:var(--media);height:92px"></div><div class="l">Media</div></div>
-          <div class="bar-col"><div class="n">7</div><div class="bar" style="background:var(--baja);height:22px"></div><div class="l">Baja</div></div>
+      <p class="lead" id="reportLead">Cargando la última captura y las predicciones del modelo vigente…</p>
+      <p class="report-empty muted" id="reportEmpty" hidden></p>
+      <div class="card pad chart" id="reportChartCard" hidden>
+        <h2 class="report-chart-title">Distribución de mascotas por prioridad</h2>
+        <div class="bars" id="reportBars" aria-label="Cantidad de mascotas por prioridad">
+          <div class="bar-col">
+            <div class="n" id="reportHighCount">0</div><div class="bar report-bar-high" id="reportHighBar"></div>
+            <div class="bar-label"><span class="l">Alta</span><span class="report-help"><button type="button" class="report-help-button" aria-label="Qué significa prioridad alta" aria-expanded="false" aria-describedby="reportHighHelp">i</button><span class="report-tooltip" id="reportHighHelp" role="tooltip">Menor probabilidad estimada de adopción; conviene priorizar su difusión.</span></span></div>
+          </div>
+          <div class="bar-col">
+            <div class="n" id="reportMediumCount">0</div><div class="bar report-bar-medium" id="reportMediumBar"></div>
+            <div class="bar-label"><span class="l">Media</span><span class="report-help"><button type="button" class="report-help-button" aria-label="Qué significa prioridad media" aria-expanded="false" aria-describedby="reportMediumHelp">i</button><span class="report-tooltip" id="reportMediumHelp" role="tooltip">Probabilidad estimada intermedia; mantener difusión regular.</span></span></div>
+          </div>
+          <div class="bar-col">
+            <div class="n" id="reportLowCount">0</div><div class="bar report-bar-low" id="reportLowBar"></div>
+            <div class="bar-label"><span class="l">Baja</span><span class="report-help"><button type="button" class="report-help-button" aria-label="Qué significa prioridad baja" aria-expanded="false" aria-describedby="reportLowHelp">i</button><span class="report-tooltip" id="reportLowHelp" role="tooltip">Mayor probabilidad estimada de adopción; prioridad menor de difusión.</span></span></div>
+          </div>
         </div>
       </div>
-      <div class="toolbar">
-        <span class="muted">La prioridad alta corresponde a una probabilidad de permanencia mayor al 65 %.</span>
+      <div class="toolbar" id="reportToolbar" hidden>
+        <label for="reportSearch">Buscar por SKU o nombre</label>
+        <input id="reportSearch" type="search" maxlength="100" placeholder="Ej. WUF0001 o Arcanie" autocomplete="off">
+        <label for="reportPriorityFilter">Prioridad</label>
+        <select id="reportPriorityFilter">
+          <option value="">Todas</option><option value="alta">Alta</option>
+          <option value="media">Media</option><option value="baja">Baja</option>
+        </select>
+        <span class="muted" id="reportFilterCount" aria-live="polite"></span>
         <div class="spacer"></div>
-        <button type="button"><i data-lucide="file-text"></i>Exportar PDF</button>
-        <button type="button" class="primary"><i data-lucide="download"></i>Exportar Excel</button>
+        <button type="button" id="exportReportPdf"><i data-lucide="file-text"></i>Exportar PDF</button>
+        <button type="button" class="primary" id="exportReportXlsx"><i data-lucide="download"></i>Exportar Excel</button>
       </div>
-      <div class="card">
-        <div class="card-head"><h2>Mascotas disponibles por prioridad</h2><span class="muted">115 registros</span></div>
-        <div class="tablewrap">
-        <table>
-          <thead><tr><th>Nombre</th><th>Especie</th><th>Edad</th><th>Tamaño</th><th>Atributo desfavorecido</th><th>Orden</th><th>Prob. de salida</th><th>Prioridad</th></tr></thead>
-          <tbody>
-<tr><td>Chispa</td><td>Canino</td><td>3 meses (est.)</td><td>Mediano</td><td>Condición especial</td><td class="num">22</td><td class="num">2.6 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Toby</td><td>Canino</td><td>3 meses (est.)</td><td>Mediano</td><td>Condición especial</td><td class="num">24</td><td class="num">3.4 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Coco</td><td>Canino</td><td>3 meses (est.)</td><td>Mediano</td><td>Condición especial</td><td class="num">25</td><td class="num">3.8 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Nala</td><td>Canino</td><td>3 meses (est.)</td><td>Mediano</td><td>Condición especial</td><td class="num">19</td><td class="num">3.8 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Turrón</td><td>Canino</td><td>3 meses (est.)</td><td>Mediano</td><td>Condición especial</td><td class="num">23</td><td class="num">5.1 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Zeus</td><td>Canino</td><td>3 meses (est.)</td><td>Mediano</td><td>Condición especial</td><td class="num">26</td><td class="num">5.3 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Caramelo</td><td>Canino</td><td>3 meses (est.)</td><td>Mediano</td><td>Condición especial</td><td class="num">27</td><td class="num">7.1 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Lulu</td><td>Canino</td><td>3 meses (est.)</td><td>Grande</td><td>Tamaño grande, Condición especial</td><td class="num">21</td><td class="num">7.7 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Beyonce</td><td>Canino</td><td>2 meses (est.)</td><td>Mediano</td><td>Condición especial</td><td class="num">7</td><td class="num">8.1 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Rita</td><td>Canino</td><td>3 meses (est.)</td><td>Grande</td><td>Tamaño grande, Condición especial</td><td class="num">20</td><td class="num">9.2 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Dixy</td><td>Canino</td><td>10 meses (est.)</td><td>Mediano</td><td><span class="muted">Ninguno</span></td><td class="num">29</td><td class="num">10.3 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Bolita</td><td>Canino</td><td>3 meses (est.)</td><td>Pequeño</td><td>Condición especial</td><td class="num">2</td><td class="num">10.4 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Tiffany</td><td>Canino</td><td>3 meses (est.)</td><td>Mediano</td><td>Condición especial</td><td class="num">5</td><td class="num">12.9 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Peluche</td><td>Canino</td><td>3 meses (est.)</td><td>Pequeño</td><td>Condición especial</td><td class="num">4</td><td class="num">12.9 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Winki</td><td>Canino</td><td>10 meses (est.)</td><td>Mediano</td><td><span class="muted">Ninguno</span></td><td class="num">30</td><td class="num">13.1 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Nube</td><td>Felino</td><td>7 años</td><td>Pequeño</td><td><span class="muted">Ninguno</span></td><td class="num">34</td><td class="num">14.7 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Esperanza</td><td>Canino</td><td>3 años (est.)</td><td>Grande</td><td>Tamaño grande, Condición especial</td><td class="num">58</td><td class="num">15.1 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Dinky</td><td>Canino</td><td>10 meses (est.)</td><td>Mediano</td><td><span class="muted">Ninguno</span></td><td class="num">31</td><td class="num">15.7 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Medium</td><td>Canino</td><td>10 meses (est.)</td><td>Mediano</td><td><span class="muted">Ninguno</span></td><td class="num">15</td><td class="num">16.2 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Large</td><td>Canino</td><td>10 meses (est.)</td><td>Mediano</td><td><span class="muted">Ninguno</span></td><td class="num">14</td><td class="num">17.1 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Becerra</td><td>Canino</td><td>3 meses (est.)</td><td>Pequeño</td><td>Condición especial</td><td class="num">3</td><td class="num">17.8 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>India</td><td>Canino</td><td>3 años (est.)</td><td>Grande</td><td>Tamaño grande, Condición especial</td><td class="num">60</td><td class="num">19.0 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Gordi</td><td>Canino</td><td>3 meses (est.)</td><td>Pequeño</td><td>Condición especial</td><td class="num">1</td><td class="num">19.9 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Tracy</td><td>Canino</td><td>5 años (est.)</td><td>Mediano</td><td><span class="muted">Ninguno</span></td><td class="num">103</td><td class="num">20.0 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Lola</td><td>Canino</td><td>6 años (est.)</td><td>Grande</td><td>Tamaño grande</td><td class="num">104</td><td class="num">20.8 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Toronto</td><td>Canino</td><td>11 años</td><td>Grande</td><td>Edad avanzada, Tamaño grande, Condición especial</td><td class="num">78</td><td class="num">21.5 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Rosita</td><td>Canino</td><td>3 años</td><td>Grande</td><td>Tamaño grande, Condición especial</td><td class="num">66</td><td class="num">22.4 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Taffy</td><td>Canino</td><td>8 años (est.)</td><td>Mediano</td><td>Edad avanzada</td><td class="num">84</td><td class="num">23.5 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Coco</td><td>Canino</td><td>4 años</td><td>Grande</td><td>Tamaño grande, Condición especial</td><td class="num">100</td><td class="num">24.1 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Estrella</td><td>Canino</td><td>6 años</td><td>Grande</td><td>Tamaño grande, Condición especial</td><td class="num">82</td><td class="num">24.7 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Melody</td><td>Canino</td><td>4 años (est.)</td><td>Grande</td><td>Tamaño grande</td><td class="num">106</td><td class="num">24.9 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Gatúbela</td><td>Canino</td><td>3 años (est.)</td><td>Mediano</td><td><span class="muted">Ninguno</span></td><td class="num">96</td><td class="num">25.8 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Negrita</td><td>Canino</td><td>8 años</td><td>Mediano</td><td>Edad avanzada, Condición especial</td><td class="num">76</td><td class="num">26.1 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Hawai</td><td>Canino</td><td>8 años</td><td>Mediano</td><td>Edad avanzada, Condición especial</td><td class="num">77</td><td class="num">26.2 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Sombra</td><td>Felino</td><td>7 años</td><td>Pequeño</td><td><span class="muted">Ninguno</span></td><td class="num">35</td><td class="num">26.8 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Copito</td><td>Felino</td><td>7 años</td><td>Pequeño</td><td><span class="muted">Ninguno</span></td><td class="num">33</td><td class="num">26.8 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Figaro</td><td>Felino</td><td>7 años</td><td>Pequeño</td><td><span class="muted">Ninguno</span></td><td class="num">36</td><td class="num">27.2 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Osita</td><td>Canino</td><td>3 años</td><td>Mediano</td><td>Condición especial</td><td class="num">65</td><td class="num">27.5 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Bernando</td><td>Canino</td><td>Sin dato</td><td>Mediano</td><td><span class="muted">Ninguno</span></td><td class="num">6</td><td class="num">28.6 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Luna</td><td>Canino</td><td>8 años (est.)</td><td>Pequeño</td><td>Edad avanzada</td><td class="num">88</td><td class="num">29.3 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Jackie</td><td>Canino</td><td>12 años (est.)</td><td>Mediano</td><td>Edad avanzada</td><td class="num">91</td><td class="num">29.6 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Cutita</td><td>Canino</td><td>2 años (est.)</td><td>Pequeño</td><td><span class="muted">Ninguno</span></td><td class="num">10</td><td class="num">30.2 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Cuto</td><td>Canino</td><td>8 años</td><td>Grande</td><td>Edad avanzada, Tamaño grande, Condición especial</td><td class="num">79</td><td class="num">30.4 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Coqueta</td><td>Canino</td><td>3 años (est.)</td><td>Grande</td><td>Tamaño grande, Condición especial</td><td class="num">59</td><td class="num">30.8 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Fox</td><td>Canino</td><td>11 años</td><td>Mediano</td><td>Edad avanzada, Condición especial</td><td class="num">73</td><td class="num">30.8 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Pollo</td><td>Canino</td><td>10 años (est.)</td><td>Mediano</td><td>Edad avanzada, Condición especial</td><td class="num">110</td><td class="num">31.3 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Yaco</td><td>Canino</td><td>12 años (est.)</td><td>Grande</td><td>Edad avanzada, Tamaño grande, Condición especial</td><td class="num">86</td><td class="num">32.7 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Chongo Yape</td><td>Canino</td><td>10 meses (est.)</td><td>Pequeño</td><td>Condición especial</td><td class="num">16</td><td class="num">32.8 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>BCP</td><td>Canino</td><td>6 años (est.)</td><td>Pequeño</td><td><span class="muted">Ninguno</span></td><td class="num">112</td><td class="num">32.9 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Crazy</td><td>Canino</td><td>7 años (est.)</td><td>Pequeño</td><td><span class="muted">Ninguno</span></td><td class="num">57</td><td class="num">33.5 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Chimu</td><td>Canino</td><td>5 años (est.)</td><td>Mediano</td><td><span class="muted">Ninguno</span></td><td class="num">99</td><td class="num">34.8 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Erik</td><td>Canino</td><td>7 años (est.)</td><td>Grande</td><td>Tamaño grande</td><td class="num">101</td><td class="num">34.9 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Bongo</td><td>Canino</td><td>12 años (est.)</td><td>Grande</td><td>Edad avanzada, Tamaño grande</td><td class="num">185</td><td class="num">35.0 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Lily</td><td>Canino</td><td>5 años (est.)</td><td>Mediano</td><td><span class="muted">Ninguno</span></td><td class="num">109</td><td class="num">35.3 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Porota</td><td>Canino</td><td>6 años (est.)</td><td>Pequeño</td><td>Condición especial</td><td class="num">18</td><td class="num">35.3 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Valiente</td><td>Canino</td><td>2 años (est.)</td><td>Mediano</td><td><span class="muted">Ninguno</span></td><td class="num">111</td><td class="num">35.6 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Chicho</td><td>Canino</td><td>11 años (est.)</td><td>Grande</td><td>Edad avanzada, Tamaño grande</td><td class="num">184</td><td class="num">35.6 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Florinda</td><td>Canino</td><td>3 años</td><td>Pequeño</td><td><span class="muted">Ninguno</span></td><td class="num">63</td><td class="num">35.7 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Olivia</td><td>Canino</td><td>5 años (est.)</td><td>Mediano</td><td>Condición especial</td><td class="num">98</td><td class="num">36.0 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Toffy</td><td>Canino</td><td>6 años</td><td>Mediano</td><td>Condición especial</td><td class="num">81</td><td class="num">36.1 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Vaquita</td><td>Canino</td><td>2 años (est.)</td><td>Pequeño</td><td><span class="muted">Ninguno</span></td><td class="num">32</td><td class="num">36.2 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Small</td><td>Canino</td><td>10 meses (est.)</td><td>Pequeño</td><td>Condición especial</td><td class="num">17</td><td class="num">36.4 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Nieves</td><td>Canino</td><td>10 años (est.)</td><td>Mediano</td><td>Edad avanzada, Condición especial</td><td class="num">85</td><td class="num">36.5 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Sol</td><td>Canino</td><td>13 años (est.)</td><td>Grande</td><td>Edad avanzada, Tamaño grande</td><td class="num">179</td><td class="num">37.0 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Celeste</td><td>Canino</td><td>1 año</td><td>Mediano</td><td>Condición especial</td><td class="num">69</td><td class="num">37.2 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Fiona</td><td>Canino</td><td>8 años (est.)</td><td>Mediano</td><td>Edad avanzada, Condición especial</td><td class="num">102</td><td class="num">37.6 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Chato</td><td>Canino</td><td>8 años (est.)</td><td>Pequeño</td><td>Edad avanzada</td><td class="num">87</td><td class="num">37.7 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>China</td><td>Canino</td><td>13 años (est.)</td><td>Mediano</td><td>Edad avanzada</td><td class="num">181</td><td class="num">37.9 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Charly</td><td>Canino</td><td>2 años (est.)</td><td>Grande</td><td>Tamaño grande, Condición especial</td><td class="num">93</td><td class="num">38.1 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Hernán</td><td>Canino</td><td>3 años (est.)</td><td>Mediano</td><td>Condición especial</td><td class="num">61</td><td class="num">38.6 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Pepe Lucho</td><td>Canino</td><td>2 años (est.)</td><td>Pequeño</td><td>Condición especial</td><td class="num">13</td><td class="num">38.6 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Bella</td><td>Canino</td><td>12 años (est.)</td><td>Mediano</td><td>Edad avanzada</td><td class="num">188</td><td class="num">39.0 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Viejo</td><td>Canino</td><td>6 años (est.)</td><td>Mediano</td><td><span class="muted">Ninguno</span></td><td class="num">97</td><td class="num">40.2 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>XL</td><td>Canino</td><td>8 meses (est.)</td><td>Pequeño</td><td>Condición especial</td><td class="num">12</td><td class="num">40.2 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Pirata</td><td>Canino</td><td>9 años</td><td>Mediano</td><td>Edad avanzada, Condición especial</td><td class="num">80</td><td class="num">40.5 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Chocolate</td><td>Canino</td><td>3 años (est.)</td><td>Mediano</td><td>Condición especial</td><td class="num">108</td><td class="num">41.0 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Gringa</td><td>Canino</td><td>8 años</td><td>Grande</td><td>Edad avanzada, Tamaño grande, Condición especial</td><td class="num">75</td><td class="num">41.1 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Chipi</td><td>Canino</td><td>11 años (est.)</td><td>Mediano</td><td>Edad avanzada</td><td class="num">182</td><td class="num">41.9 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Blue</td><td>Canino</td><td>4 años</td><td>Mediano</td><td>Condición especial</td><td class="num">67</td><td class="num">42.2 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Mono</td><td>Canino</td><td>6 años (est.)</td><td>Pequeño</td><td><span class="muted">Ninguno</span></td><td class="num">113</td><td class="num">42.9 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Cocoa</td><td>Canino</td><td>1 año</td><td>Grande</td><td>Tamaño grande, Condición especial</td><td class="num">52</td><td class="num">43.5 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Ann</td><td>Canino</td><td>3 años</td><td>Pequeño</td><td>Condición especial</td><td class="num">37</td><td class="num">43.7 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Toro</td><td>Canino</td><td>8 años (est.)</td><td>Grande</td><td>Edad avanzada, Tamaño grande, Condición especial</td><td class="num">83</td><td class="num">44.2 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Sasha</td><td>Canino</td><td>2 años (est.)</td><td>Mediano</td><td>Condición especial</td><td class="num">11</td><td class="num">44.6 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Mocho</td><td>Canino</td><td>5 años</td><td>Mediano</td><td>Condición especial</td><td class="num">41</td><td class="num">45.4 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Arcanie</td><td>Canino</td><td>8 años (est.)</td><td>Mediano</td><td>Edad avanzada, Condición especial</td><td class="num">189</td><td class="num">45.9 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Oreo</td><td>Canino</td><td>1 año</td><td>Mediano</td><td><span class="muted">Ninguno</span></td><td class="num">50</td><td class="num">46.0 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Luna</td><td>Canino</td><td>11 años</td><td>Grande</td><td>Edad avanzada, Tamaño grande, Condición especial</td><td class="num">163</td><td class="num">46.0 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Gustavo</td><td>Canino</td><td>2 años (est.)</td><td>Grande</td><td>Tamaño grande</td><td class="num">92</td><td class="num">46.1 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Zoter</td><td>Canino</td><td>10 años (est.)</td><td>Mediano</td><td>Edad avanzada, Condición especial</td><td class="num">107</td><td class="num">46.2 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Piraña</td><td>Canino</td><td>7 años</td><td>Mediano</td><td>Condición especial</td><td class="num">72</td><td class="num">47.3 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Paolo</td><td>Canino</td><td>12 años (est.)</td><td>Mediano</td><td>Edad avanzada</td><td class="num">177</td><td class="num">50.9 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Mika</td><td>Canino</td><td>4 años</td><td>Mediano</td><td><span class="muted">Ninguno</span></td><td class="num">62</td><td class="num">51.2 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Spice Girl</td><td>Canino</td><td>1 año</td><td>Mediano</td><td>Condición especial</td><td class="num">44</td><td class="num">51.5 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Negra</td><td>Canino</td><td>13 años (est.)</td><td>Mediano</td><td>Edad avanzada, Condición especial</td><td class="num">178</td><td class="num">52.6 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Emilia</td><td>Canino</td><td>8 años (est.)</td><td>Grande</td><td>Edad avanzada, Tamaño grande, Condición especial</td><td class="num">180</td><td class="num">53.0 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Bella</td><td>Canino</td><td>9 años (est.)</td><td>Mediano</td><td>Edad avanzada</td><td class="num">187</td><td class="num">56.0 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Lucky</td><td>Canino</td><td>11 años (est.)</td><td>Grande</td><td>Edad avanzada, Tamaño grande, Condición especial</td><td class="num">90</td><td class="num">56.4 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Patona</td><td>Canino</td><td>5 años (est.)</td><td>Mediano</td><td><span class="muted">Ninguno</span></td><td class="num">115</td><td class="num">56.7 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Candy</td><td>Canino</td><td>9 años (est.)</td><td>Grande</td><td>Edad avanzada, Tamaño grande</td><td class="num">183</td><td class="num">57.1 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Nieves</td><td>Canino</td><td>3 años (est.)</td><td>Mediano</td><td>Condición especial</td><td class="num">39</td><td class="num">58.1 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Tony</td><td>Canino</td><td>11 años (est.)</td><td>Grande</td><td>Edad avanzada, Tamaño grande</td><td class="num">147</td><td class="num">60.8 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Zeus</td><td>Canino</td><td>8 años (est.)</td><td>Grande</td><td>Edad avanzada, Tamaño grande, Condición especial</td><td class="num">116</td><td class="num">61.2 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Pili</td><td>Canino</td><td>10 años (est.)</td><td>Grande</td><td>Edad avanzada, Tamaño grande</td><td class="num">169</td><td class="num">61.4 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Max</td><td>Canino</td><td>12 años (est.)</td><td>Grande</td><td>Edad avanzada, Tamaño grande, Condición especial</td><td class="num">161</td><td class="num">62.3 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Mimi</td><td>Canino</td><td>1 año</td><td>Mediano</td><td><span class="muted">Ninguno</span></td><td class="num">49</td><td class="num">62.8 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Charada</td><td>Canino</td><td>1 año</td><td>Mediano</td><td>Condición especial</td><td class="num">45</td><td class="num">62.9 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Zigri</td><td>Canino</td><td>5 años (est.)</td><td>Grande</td><td>Tamaño grande</td><td class="num">136</td><td class="num">64.3 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Osito</td><td>Canino</td><td>14 años (est.)</td><td>Grande</td><td>Edad avanzada, Tamaño grande, Condición especial</td><td class="num">144</td><td class="num">67.3 %</td><td><span class="tag baja">Baja</span></td></tr>
-<tr><td>Lola</td><td>Canino</td><td>13 años (est.)</td><td>Mediano</td><td>Edad avanzada</td><td class="num">166</td><td class="num">71.5 %</td><td><span class="tag baja">Baja</span></td></tr>
-<tr><td>Brunito</td><td>Canino</td><td>10 años (est.)</td><td>Mediano</td><td>Edad avanzada</td><td class="num">146</td><td class="num">74.7 %</td><td><span class="tag baja">Baja</span></td></tr>
-<tr><td>Lupita</td><td>Canino</td><td>12 años (est.)</td><td>Mediano</td><td>Edad avanzada, Condición especial</td><td class="num">164</td><td class="num">75.6 %</td><td><span class="tag baja">Baja</span></td></tr>
-<tr><td>Larissa</td><td>Canino</td><td>10 años</td><td>Mediano</td><td>Edad avanzada</td><td class="num">160</td><td class="num">76.3 %</td><td><span class="tag baja">Baja</span></td></tr>
-<tr><td>Rosy</td><td>Canino</td><td>11 años (est.)</td><td>Mediano</td><td>Edad avanzada</td><td class="num">143</td><td class="num">76.5 %</td><td><span class="tag baja">Baja</span></td></tr>
-<tr><td>Sasha</td><td>Canino</td><td>7 años (est.)</td><td>Mediano</td><td><span class="muted">Ninguno</span></td><td class="num">125</td><td class="num">89.2 %</td><td><span class="tag baja">Baja</span></td></tr>
-          </tbody>
-        </table>
+      <div class="card report-table-card">
+        <div class="card-head"><h2>Mascotas disponibles ordenadas por prioridad</h2><span class="muted" id="reportTotal"></span></div>
+        <div class="tablewrap report-table-scroll">
+          <table>
+            <thead><tr><th>SKU</th><th>Nombre</th><th>Especie</th><th>Sexo</th><th>Edad</th><th>Tamaño</th><th>Condición especial</th><th>Orden</th><th>Probabilidad estimada de adopción</th><th>Prioridad</th></tr></thead>
+            <tbody id="reportRows"><tr><td colspan="10" class="muted">Cargando reporte…</td></tr></tbody>
+          </table>
         </div>
       </div>
-      <div class="card">
-        <div class="card-head"><h2>Segmento de perfiles desfavorecidos</h2><span class="muted">88 registros</span></div>
-        <div class="tablewrap">
-        <table>
-          <thead><tr><th>Nombre</th><th>Especie</th><th>Edad</th><th>Tamaño</th><th>Atributo desfavorecido</th><th>Orden</th><th>Prob. de salida</th><th>Prioridad</th></tr></thead>
-          <tbody>
-<tr><td>Chispa</td><td>Canino</td><td>3 meses (est.)</td><td>Mediano</td><td>Condición especial</td><td class="num">22</td><td class="num">2.6 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Toby</td><td>Canino</td><td>3 meses (est.)</td><td>Mediano</td><td>Condición especial</td><td class="num">24</td><td class="num">3.4 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Coco</td><td>Canino</td><td>3 meses (est.)</td><td>Mediano</td><td>Condición especial</td><td class="num">25</td><td class="num">3.8 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Nala</td><td>Canino</td><td>3 meses (est.)</td><td>Mediano</td><td>Condición especial</td><td class="num">19</td><td class="num">3.8 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Turrón</td><td>Canino</td><td>3 meses (est.)</td><td>Mediano</td><td>Condición especial</td><td class="num">23</td><td class="num">5.1 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Zeus</td><td>Canino</td><td>3 meses (est.)</td><td>Mediano</td><td>Condición especial</td><td class="num">26</td><td class="num">5.3 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Caramelo</td><td>Canino</td><td>3 meses (est.)</td><td>Mediano</td><td>Condición especial</td><td class="num">27</td><td class="num">7.1 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Lulu</td><td>Canino</td><td>3 meses (est.)</td><td>Grande</td><td>Tamaño grande, Condición especial</td><td class="num">21</td><td class="num">7.7 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Beyonce</td><td>Canino</td><td>2 meses (est.)</td><td>Mediano</td><td>Condición especial</td><td class="num">7</td><td class="num">8.1 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Rita</td><td>Canino</td><td>3 meses (est.)</td><td>Grande</td><td>Tamaño grande, Condición especial</td><td class="num">20</td><td class="num">9.2 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Bolita</td><td>Canino</td><td>3 meses (est.)</td><td>Pequeño</td><td>Condición especial</td><td class="num">2</td><td class="num">10.4 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Tiffany</td><td>Canino</td><td>3 meses (est.)</td><td>Mediano</td><td>Condición especial</td><td class="num">5</td><td class="num">12.9 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Peluche</td><td>Canino</td><td>3 meses (est.)</td><td>Pequeño</td><td>Condición especial</td><td class="num">4</td><td class="num">12.9 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Esperanza</td><td>Canino</td><td>3 años (est.)</td><td>Grande</td><td>Tamaño grande, Condición especial</td><td class="num">58</td><td class="num">15.1 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Becerra</td><td>Canino</td><td>3 meses (est.)</td><td>Pequeño</td><td>Condición especial</td><td class="num">3</td><td class="num">17.8 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>India</td><td>Canino</td><td>3 años (est.)</td><td>Grande</td><td>Tamaño grande, Condición especial</td><td class="num">60</td><td class="num">19.0 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Gordi</td><td>Canino</td><td>3 meses (est.)</td><td>Pequeño</td><td>Condición especial</td><td class="num">1</td><td class="num">19.9 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Lola</td><td>Canino</td><td>6 años (est.)</td><td>Grande</td><td>Tamaño grande</td><td class="num">104</td><td class="num">20.8 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Toronto</td><td>Canino</td><td>11 años</td><td>Grande</td><td>Edad avanzada, Tamaño grande, Condición especial</td><td class="num">78</td><td class="num">21.5 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Rosita</td><td>Canino</td><td>3 años</td><td>Grande</td><td>Tamaño grande, Condición especial</td><td class="num">66</td><td class="num">22.4 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Taffy</td><td>Canino</td><td>8 años (est.)</td><td>Mediano</td><td>Edad avanzada</td><td class="num">84</td><td class="num">23.5 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Coco</td><td>Canino</td><td>4 años</td><td>Grande</td><td>Tamaño grande, Condición especial</td><td class="num">100</td><td class="num">24.1 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Estrella</td><td>Canino</td><td>6 años</td><td>Grande</td><td>Tamaño grande, Condición especial</td><td class="num">82</td><td class="num">24.7 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Melody</td><td>Canino</td><td>4 años (est.)</td><td>Grande</td><td>Tamaño grande</td><td class="num">106</td><td class="num">24.9 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Negrita</td><td>Canino</td><td>8 años</td><td>Mediano</td><td>Edad avanzada, Condición especial</td><td class="num">76</td><td class="num">26.1 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Hawai</td><td>Canino</td><td>8 años</td><td>Mediano</td><td>Edad avanzada, Condición especial</td><td class="num">77</td><td class="num">26.2 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Osita</td><td>Canino</td><td>3 años</td><td>Mediano</td><td>Condición especial</td><td class="num">65</td><td class="num">27.5 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Luna</td><td>Canino</td><td>8 años (est.)</td><td>Pequeño</td><td>Edad avanzada</td><td class="num">88</td><td class="num">29.3 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Jackie</td><td>Canino</td><td>12 años (est.)</td><td>Mediano</td><td>Edad avanzada</td><td class="num">91</td><td class="num">29.6 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Cuto</td><td>Canino</td><td>8 años</td><td>Grande</td><td>Edad avanzada, Tamaño grande, Condición especial</td><td class="num">79</td><td class="num">30.4 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Coqueta</td><td>Canino</td><td>3 años (est.)</td><td>Grande</td><td>Tamaño grande, Condición especial</td><td class="num">59</td><td class="num">30.8 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Fox</td><td>Canino</td><td>11 años</td><td>Mediano</td><td>Edad avanzada, Condición especial</td><td class="num">73</td><td class="num">30.8 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Pollo</td><td>Canino</td><td>10 años (est.)</td><td>Mediano</td><td>Edad avanzada, Condición especial</td><td class="num">110</td><td class="num">31.3 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Yaco</td><td>Canino</td><td>12 años (est.)</td><td>Grande</td><td>Edad avanzada, Tamaño grande, Condición especial</td><td class="num">86</td><td class="num">32.7 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Chongo Yape</td><td>Canino</td><td>10 meses (est.)</td><td>Pequeño</td><td>Condición especial</td><td class="num">16</td><td class="num">32.8 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Erik</td><td>Canino</td><td>7 años (est.)</td><td>Grande</td><td>Tamaño grande</td><td class="num">101</td><td class="num">34.9 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Bongo</td><td>Canino</td><td>12 años (est.)</td><td>Grande</td><td>Edad avanzada, Tamaño grande</td><td class="num">185</td><td class="num">35.0 %</td><td><span class="tag alta">Alta</span></td></tr>
-<tr><td>Porota</td><td>Canino</td><td>6 años (est.)</td><td>Pequeño</td><td>Condición especial</td><td class="num">18</td><td class="num">35.3 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Chicho</td><td>Canino</td><td>11 años (est.)</td><td>Grande</td><td>Edad avanzada, Tamaño grande</td><td class="num">184</td><td class="num">35.6 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Olivia</td><td>Canino</td><td>5 años (est.)</td><td>Mediano</td><td>Condición especial</td><td class="num">98</td><td class="num">36.0 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Toffy</td><td>Canino</td><td>6 años</td><td>Mediano</td><td>Condición especial</td><td class="num">81</td><td class="num">36.1 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Small</td><td>Canino</td><td>10 meses (est.)</td><td>Pequeño</td><td>Condición especial</td><td class="num">17</td><td class="num">36.4 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Nieves</td><td>Canino</td><td>10 años (est.)</td><td>Mediano</td><td>Edad avanzada, Condición especial</td><td class="num">85</td><td class="num">36.5 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Sol</td><td>Canino</td><td>13 años (est.)</td><td>Grande</td><td>Edad avanzada, Tamaño grande</td><td class="num">179</td><td class="num">37.0 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Celeste</td><td>Canino</td><td>1 año</td><td>Mediano</td><td>Condición especial</td><td class="num">69</td><td class="num">37.2 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Fiona</td><td>Canino</td><td>8 años (est.)</td><td>Mediano</td><td>Edad avanzada, Condición especial</td><td class="num">102</td><td class="num">37.6 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Chato</td><td>Canino</td><td>8 años (est.)</td><td>Pequeño</td><td>Edad avanzada</td><td class="num">87</td><td class="num">37.7 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>China</td><td>Canino</td><td>13 años (est.)</td><td>Mediano</td><td>Edad avanzada</td><td class="num">181</td><td class="num">37.9 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Charly</td><td>Canino</td><td>2 años (est.)</td><td>Grande</td><td>Tamaño grande, Condición especial</td><td class="num">93</td><td class="num">38.1 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Hernán</td><td>Canino</td><td>3 años (est.)</td><td>Mediano</td><td>Condición especial</td><td class="num">61</td><td class="num">38.6 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Pepe Lucho</td><td>Canino</td><td>2 años (est.)</td><td>Pequeño</td><td>Condición especial</td><td class="num">13</td><td class="num">38.6 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Bella</td><td>Canino</td><td>12 años (est.)</td><td>Mediano</td><td>Edad avanzada</td><td class="num">188</td><td class="num">39.0 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>XL</td><td>Canino</td><td>8 meses (est.)</td><td>Pequeño</td><td>Condición especial</td><td class="num">12</td><td class="num">40.2 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Pirata</td><td>Canino</td><td>9 años</td><td>Mediano</td><td>Edad avanzada, Condición especial</td><td class="num">80</td><td class="num">40.5 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Chocolate</td><td>Canino</td><td>3 años (est.)</td><td>Mediano</td><td>Condición especial</td><td class="num">108</td><td class="num">41.0 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Gringa</td><td>Canino</td><td>8 años</td><td>Grande</td><td>Edad avanzada, Tamaño grande, Condición especial</td><td class="num">75</td><td class="num">41.1 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Chipi</td><td>Canino</td><td>11 años (est.)</td><td>Mediano</td><td>Edad avanzada</td><td class="num">182</td><td class="num">41.9 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Blue</td><td>Canino</td><td>4 años</td><td>Mediano</td><td>Condición especial</td><td class="num">67</td><td class="num">42.2 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Cocoa</td><td>Canino</td><td>1 año</td><td>Grande</td><td>Tamaño grande, Condición especial</td><td class="num">52</td><td class="num">43.5 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Ann</td><td>Canino</td><td>3 años</td><td>Pequeño</td><td>Condición especial</td><td class="num">37</td><td class="num">43.7 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Toro</td><td>Canino</td><td>8 años (est.)</td><td>Grande</td><td>Edad avanzada, Tamaño grande, Condición especial</td><td class="num">83</td><td class="num">44.2 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Sasha</td><td>Canino</td><td>2 años (est.)</td><td>Mediano</td><td>Condición especial</td><td class="num">11</td><td class="num">44.6 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Mocho</td><td>Canino</td><td>5 años</td><td>Mediano</td><td>Condición especial</td><td class="num">41</td><td class="num">45.4 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Arcanie</td><td>Canino</td><td>8 años (est.)</td><td>Mediano</td><td>Edad avanzada, Condición especial</td><td class="num">189</td><td class="num">45.9 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Luna</td><td>Canino</td><td>11 años</td><td>Grande</td><td>Edad avanzada, Tamaño grande, Condición especial</td><td class="num">163</td><td class="num">46.0 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Gustavo</td><td>Canino</td><td>2 años (est.)</td><td>Grande</td><td>Tamaño grande</td><td class="num">92</td><td class="num">46.1 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Zoter</td><td>Canino</td><td>10 años (est.)</td><td>Mediano</td><td>Edad avanzada, Condición especial</td><td class="num">107</td><td class="num">46.2 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Piraña</td><td>Canino</td><td>7 años</td><td>Mediano</td><td>Condición especial</td><td class="num">72</td><td class="num">47.3 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Paolo</td><td>Canino</td><td>12 años (est.)</td><td>Mediano</td><td>Edad avanzada</td><td class="num">177</td><td class="num">50.9 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Spice Girl</td><td>Canino</td><td>1 año</td><td>Mediano</td><td>Condición especial</td><td class="num">44</td><td class="num">51.5 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Negra</td><td>Canino</td><td>13 años (est.)</td><td>Mediano</td><td>Edad avanzada, Condición especial</td><td class="num">178</td><td class="num">52.6 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Emilia</td><td>Canino</td><td>8 años (est.)</td><td>Grande</td><td>Edad avanzada, Tamaño grande, Condición especial</td><td class="num">180</td><td class="num">53.0 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Bella</td><td>Canino</td><td>9 años (est.)</td><td>Mediano</td><td>Edad avanzada</td><td class="num">187</td><td class="num">56.0 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Lucky</td><td>Canino</td><td>11 años (est.)</td><td>Grande</td><td>Edad avanzada, Tamaño grande, Condición especial</td><td class="num">90</td><td class="num">56.4 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Candy</td><td>Canino</td><td>9 años (est.)</td><td>Grande</td><td>Edad avanzada, Tamaño grande</td><td class="num">183</td><td class="num">57.1 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Nieves</td><td>Canino</td><td>3 años (est.)</td><td>Mediano</td><td>Condición especial</td><td class="num">39</td><td class="num">58.1 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Tony</td><td>Canino</td><td>11 años (est.)</td><td>Grande</td><td>Edad avanzada, Tamaño grande</td><td class="num">147</td><td class="num">60.8 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Zeus</td><td>Canino</td><td>8 años (est.)</td><td>Grande</td><td>Edad avanzada, Tamaño grande, Condición especial</td><td class="num">116</td><td class="num">61.2 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Pili</td><td>Canino</td><td>10 años (est.)</td><td>Grande</td><td>Edad avanzada, Tamaño grande</td><td class="num">169</td><td class="num">61.4 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Max</td><td>Canino</td><td>12 años (est.)</td><td>Grande</td><td>Edad avanzada, Tamaño grande, Condición especial</td><td class="num">161</td><td class="num">62.3 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Charada</td><td>Canino</td><td>1 año</td><td>Mediano</td><td>Condición especial</td><td class="num">45</td><td class="num">62.9 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Zigri</td><td>Canino</td><td>5 años (est.)</td><td>Grande</td><td>Tamaño grande</td><td class="num">136</td><td class="num">64.3 %</td><td><span class="tag media">Media</span></td></tr>
-<tr><td>Osito</td><td>Canino</td><td>14 años (est.)</td><td>Grande</td><td>Edad avanzada, Tamaño grande, Condición especial</td><td class="num">144</td><td class="num">67.3 %</td><td><span class="tag baja">Baja</span></td></tr>
-<tr><td>Lola</td><td>Canino</td><td>13 años (est.)</td><td>Mediano</td><td>Edad avanzada</td><td class="num">166</td><td class="num">71.5 %</td><td><span class="tag baja">Baja</span></td></tr>
-<tr><td>Brunito</td><td>Canino</td><td>10 años (est.)</td><td>Mediano</td><td>Edad avanzada</td><td class="num">146</td><td class="num">74.7 %</td><td><span class="tag baja">Baja</span></td></tr>
-<tr><td>Lupita</td><td>Canino</td><td>12 años (est.)</td><td>Mediano</td><td>Edad avanzada, Condición especial</td><td class="num">164</td><td class="num">75.6 %</td><td><span class="tag baja">Baja</span></td></tr>
-<tr><td>Larissa</td><td>Canino</td><td>10 años</td><td>Mediano</td><td>Edad avanzada</td><td class="num">160</td><td class="num">76.3 %</td><td><span class="tag baja">Baja</span></td></tr>
-<tr><td>Rosy</td><td>Canino</td><td>11 años (est.)</td><td>Mediano</td><td>Edad avanzada</td><td class="num">143</td><td class="num">76.5 %</td><td><span class="tag baja">Baja</span></td></tr>
-          </tbody>
-        </table>
+      <div class="card report-history-card">
+        <div class="card-head"><h2>Historial de reportes</h2><span class="muted">Las exportaciones quedan guardadas aquí</span></div>
+        <div class="tablewrap report-history-scroll">
+          <table>
+            <thead><tr><th>Fecha de generación</th><th>Semana</th><th>Modelo</th><th>Formato</th><th>Registros</th><th>Generado por</th><th>Acción</th></tr></thead>
+            <tbody id="reportHistoryRows"><tr><td colspan="7" class="muted">Cargando historial…</td></tr></tbody>
+          </table>
         </div>
       </div>
     </section>
@@ -572,6 +385,6 @@
 
 <script src="config.js"></script>
 <div id="toastRegion" class="toast-region" aria-label="Mensajes del sistema"></div>
-<script src="app.js?v=hu04-toast-layout-2"></script>
+<script src="app.js?v=hu05-report-3"></script>
 </body>
 </html>

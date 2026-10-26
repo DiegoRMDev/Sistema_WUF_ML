@@ -201,6 +201,8 @@ Registra las ejecuciones manuales por CSV y los contadores mostrados en la panta
 - `reporte_priorizacion.id_usuario` referencia `usuario.id_usuario`.
 - `modelo_predictivo.id_dataset` referencia `dataset_historico.id_dataset`.
 
+HU05 reutiliza `reporte_priorizacion` para auditar usuario, semana ISO, fecha y formato de cada exportación. Las filas del archivo se conservan como copias en `prediccion` con `id_reporte` asignado; cada copia mantiene las relaciones con el modelo, mascota y ejecución fuente. La lectura del catálogo sigue usando predicciones con `id_reporte IS NULL`, así que los reportes históricos no sustituyen las predicciones actuales. No se requieren columnas nuevas ni migración para HU05 en el esquema v5.
+
 ## Orden de creación
 
 El SQL crea primero las tablas referenciadas y luego sus dependientes: usuario y mascota; adoptante, dataset y ejecución; posteriormente relaciones, snapshots, etiquetas históricas, modelos, reportes y predicciones.

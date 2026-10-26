@@ -63,6 +63,16 @@ def require_analyst(user: CurrentUser = Depends(get_current_user)) -> CurrentUse
     return user
 
 
+def require_analyst_or_marketing(user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
+    """Permite consultar y exportar reportes a los roles que los usan en el flujo."""
+    if user.rol not in {"analista", "marketing"}:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"code": "insufficient_role", "message": "Esta operación requiere Analista o Marketing."},
+        )
+    return user
+
+
 def get_collection_query_service(
     session: Session = Depends(get_db),
 ) -> CollectionQueryService:

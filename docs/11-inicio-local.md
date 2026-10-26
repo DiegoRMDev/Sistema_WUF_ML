@@ -13,6 +13,8 @@ Esta guía permite que otra persona prepare el entorno local y ejecute el backen
 
 > Los comandos no requieren instalar herramientas pagadas. Las dependencias de Python se declaran en `backend/pyproject.toml`.
 
+HU05 agrega `openpyxl` para Excel y ReportLab para PDF. Al descargar cambios que incluyen estas dependencias, activa el entorno virtual de `backend/` y ejecuta `python -m pip install -e .` antes de iniciar el servidor.
+
 ## A. Preparar la base de datos
 
 ### Base ya creada y migrada para HU01 CSV

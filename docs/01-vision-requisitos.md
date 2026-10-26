@@ -69,6 +69,10 @@ Los sprints son de tres semanas, salvo S4 de cuatro semanas; el plan abarca sema
 
 La historia y RF01 del avance describen recolección automática semanal. Como el proyecto no dispone de acceso a la plataforma WUF, para el alcance implementable de HU01 se acordó simular la fuente mediante archivos CSV y que el Analista inicie cada importación desde la interfaz. Se conservan los atributos requeridos, la trazabilidad temporal y los snapshots de RF01/RF02; la consulta a WUF y la programación automática quedan fuera de esta entrega. Los CSV de demostración y sus etiquetas son sintéticos y no representan datos observados en WUF.
 
+### Adaptación acordada para HU05
+
+El reporte conserva la semana ISO y la fecha de la captura importada, pero se consulta y exporta a demanda. No se requiere programar su generación automática semanal: el flujo de trabajo inicia con la importación manual acordada para HU01, y el Analista/Marketing genera el reporte cuando necesita revisar o compartir la priorización de esa captura. Esta adaptación sustituye el criterio de generación programada sin cambiar el orden por prioridad ni la exportación PDF/Excel de RF09.
+
 ## Trazabilidad entre requisitos y prototipo
 
 El prototipo es la referencia visual y de flujo para las pantallas login, dashboard, catálogo, recolección, dataset, entrenamiento, alertas, reporte y configuración. Al construir cada módulo se conservarán navegación, jerarquía, componentes, términos y estados visuales; sus cifras y registros de muestra no son datos de negocio. Las rutas (`#dashboard`, `#catalogo`, `#recoleccion`, `#dataset`, `#entrenamiento`, `#alertas`, `#reporte`, `#configuracion`) son referencias de interfaz, no controles de autorización.

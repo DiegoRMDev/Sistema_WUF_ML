@@ -73,11 +73,19 @@ Las prioridades siguen siendo etiquetas provisionales derivadas de la regla; las
 
 ## HU05 - Reporte semanal de priorización (S3, media)
 
-- Tomar mascotas disponibles, predicción vigente y regla versionada; ordenar por necesidad de difusión.
-- Exportar PDF/Excel con periodo, hora, modelo, campos, filtros y semántica de prioridad; proteger endpoints de descarga.
-- Hacer generación idempotente por periodo/modelo/filtros o crear versión explícita.
+La guía detallada del flujo, la vista, la persistencia, los endpoints y las limitaciones está en [`16-hu05-reporte-priorizacion.md`](16-hu05-reporte-priorizacion.md).
 
-**Aceptación base:** reporte ordenado y descargable; sin modelo vigente mostrar error accionable y no resultados falsos; sin mascotas informar sin generar archivo vacío ambiguo.
+- **Estado: completo para el alcance acordado.** La generación programada no se requiere porque HU01 utiliza importación manual de CSV; el reporte conserva la semana ISO de la captura y se genera a demanda.
+- **Implementado:** la vista consulta las mascotas disponibles de la última captura completa y las predicciones ligadas al modelo vigente y a esa ejecución. No recalcula probabilidades ni usa predicciones antiguas para completar filas faltantes.
+- El reporte ordena por prioridad de HU03 (alta, media, baja) y luego por menor probabilidad, manteniendo el orden de publicación como desempate. Muestra semana ISO, fecha de captura, modelo, resumen de prioridades y tabla con atributos de la mascota, estimación y prioridad.
+- El gráfico ofrece una explicación breve de cada nivel de prioridad mediante ayuda accesible con cursor, teclado y toque; el texto refleja la relación entre la estimación y la prioridad de difusión.
+- El Analista y Marketing pueden consultar y exportar. Tanto la API como la navegación validan los roles; el filtro por SKU/nombre y prioridad solo afecta la tabla, mientras la exportación incluye todos los registros.
+- La exportación genera Excel con `openpyxl` o PDF con ReportLab. Cada exportación inicial registra una versión en `reporte_priorizacion` y copia sus predicciones con `id_reporte`; el historial permite consultar los últimos reportes y regenerar una descarga desde las predicciones y snapshots guardados, sin crear otra versión. No se necesita modificar el esquema v5.
+- La generación es a demanda sobre la captura importada, según la adaptación acordada de HU05 descrita en [`01-vision-requisitos.md`](01-vision-requisitos.md). No queda una tarea de programación semanal pendiente.
+- Si falta una captura completa, modelo vigente, mascotas disponibles o predicciones para todas las mascotas disponibles, se informa qué debe completarse y no se produce un archivo parcial.
+- API: `GET /api/v1/reports/current` entrega el resumen y la tabla; `POST /api/v1/reports/export?formato=pdf|xlsx` genera y registra una nueva exportación; `GET /api/v1/reports/history` lista las últimas 30 versiones; `GET /api/v1/reports/history/{id}/export` vuelve a descargar una versión desde su evidencia guardada. Todos los endpoints están disponibles para Analista y Marketing. Si los datos fuente no están listos, la exportación responde con un error funcional y no crea un reporte.
+
+**Aceptación:** el resumen y la tabla coinciden con la última captura y modelo vigente; PDF y Excel contienen todos los registros con semana, fecha, modelo y prioridades; las descargas quedan auditadas y los roles sin permiso son rechazados.
 
 ## HU06 - Perfiles desfavorecidos (S3, media)
 
