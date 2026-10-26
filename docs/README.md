@@ -15,6 +15,7 @@ Este directorio convierte el avance académico y el prototipo navegable en una g
 9. [HU03 — Entrenamiento y predicción](14-hu03-entrenamiento-modelo.md): preparación de datos, Random Forest, métricas, artefactos, migración y uso de la interfaz.
 10. [HU04 — Consistencia del catálogo](15-hu04-consistencia.md): DecisionTreeClassifier, etiquetas demo, métricas, diagrama del árbol, permisos y persistencia.
 11. [HU05 — Reporte semanal de priorización](16-hu05-reporte-priorizacion.md): flujo de datos, prioridades, vista, filtros, exportación, historial, permisos y límites actuales.
+12. [Guía de las tablas de la base de datos](17-guia-tablas-base-datos.md): explicación sencilla de las 18 tablas del esquema vigente y de sus relaciones.
 
 ## Convenciones
 
