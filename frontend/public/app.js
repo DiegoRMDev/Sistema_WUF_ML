@@ -1261,9 +1261,10 @@ async function loadPrioritizationReport() {
   $("reportLead").textContent = "Cargando la última captura y las predicciones del modelo vigente…";
   $("reportEmpty").hidden = true;
   $("reportChartCard").hidden = true;
+  $("reportDisadvantagedSummary").hidden = true;
   $("reportToolbar").hidden = true;
   $("reportTotal").textContent = "";
-  body.replaceChildren(modelTableMessage("Cargando reporte…", 10));
+  body.replaceChildren(modelTableMessage("Cargando reporte…", 11));
   setNotice("reportMessage");
   try {
     const report = await api("/reports/current");
@@ -1271,21 +1272,22 @@ async function loadPrioritizationReport() {
       $("reportLead").textContent = "El reporte semanal aún no está disponible.";
       $("reportEmpty").textContent = report.mensaje || "No hay información para mostrar.";
       $("reportEmpty").hidden = false;
-      body.replaceChildren(modelTableMessage(report.mensaje || "No hay datos para mostrar.", 10));
+      body.replaceChildren(modelTableMessage(report.mensaje || "No hay datos para mostrar.", 11));
       return;
     }
     currentPrioritizationReport = report;
-    $("reportLead").textContent = `Semana ${report.semana} · captura ${formatCaptureDate(report.fecha_captura)} · ${report.total} mascotas disponibles · modelo v${report.modelo_version}.`;
+    $("reportLead").textContent = `Semana ${report.semana} · captura ${formatCaptureDate(report.fecha_captura)} · ${report.total} mascotas disponibles · modelo ${report.modelo_version}.`;
     $("reportTotal").textContent = `${report.total} registros`;
     renderPrioritizationChart(report.prioridades, report.total);
     $("reportChartCard").hidden = false;
+    renderDisadvantagedSummary(report.segmentacion_desfavorecidas);
     $("reportToolbar").hidden = false;
     renderPrioritizationRows(report.items);
   } catch (cause) {
     $("reportLead").textContent = "No se pudo cargar el reporte semanal.";
     $("reportEmpty").textContent = cause.message;
     $("reportEmpty").hidden = false;
-    body.replaceChildren(modelTableMessage("No se pudo cargar el reporte.", 10));
+    body.replaceChildren(modelTableMessage("No se pudo cargar el reporte.", 11));
     setNotice("reportMessage", cause.message, "error");
   }
 }
@@ -1313,7 +1315,7 @@ function renderPrioritizationHistory(items) {
     const row = document.createElement("tr");
     appendTextCell(row, formatReportDate(report.fecha_generacion));
     appendTextCell(row, `Semana ${report.semana}`);
-    appendTextCell(row, `v${report.modelo_version}`);
+    appendTextCell(row, report.modelo_version);
     appendTextCell(row, String(report.formato).toUpperCase());
     appendTextCell(row, String(report.total), "num");
     appendTextCell(row, report.usuario || "—");
@@ -1381,6 +1383,9 @@ function renderPrioritizationRows(items) {
     row.dataset.reportPet = "true";
     row.dataset.search = normalizeCatalogSearch(`${pet.sku} ${pet.nombre}`);
     row.dataset.priority = String(pet.nivel_prioridad || "").toLocaleLowerCase("es-PE");
+    const criteria = pet.criterios_desfavorecidos || [];
+    row.dataset.disadvantagedCriteria = criteria.map((criterion) => criterion.codigo).join(" ");
+    row.dataset.disadvantaged = String(Boolean(pet.es_desfavorecida));
     appendTextCell(row, pet.sku);
     appendTextCell(row, pet.nombre);
     appendTextCell(row, pet.especie);
@@ -1397,6 +1402,9 @@ function renderPrioritizationRows(items) {
     priorityTag.textContent = pet.nivel_prioridad;
     priorityCell.append(priorityTag);
     row.append(priorityCell);
+    const criteriaLabels = criteria.map((criterion) => `${criterion.nombre}${criterion.estimado ? " (est.)" : ""}`);
+    if (pet.edad_desconocida) criteriaLabels.push("Edad no indicada");
+    appendTextCell(row, criteriaLabels.length ? criteriaLabels.join(" · ") : "Ninguno", "wrap");
     body.append(row);
   });
   applyPrioritizationFilters();
@@ -1407,20 +1415,34 @@ function applyPrioritizationFilters() {
   const rows = [...body.querySelectorAll("tr[data-report-pet]")];
   const query = normalizeCatalogSearch($("reportSearch").value.trim());
   const priority = $("reportPriorityFilter").value;
+  const disadvantaged = $("reportDisadvantagedFilter").value;
   body.querySelector("#reportNoMatches")?.remove();
   let visible = 0;
   rows.forEach((row) => {
     const matches = (!query || row.dataset.search.includes(query))
-      && (!priority || row.dataset.priority === priority);
+      && (!priority || row.dataset.priority === priority)
+      && (!disadvantaged
+        || (disadvantaged === "ninguno" ? row.dataset.disadvantaged === "false"
+          : row.dataset.disadvantagedCriteria.split(" ").includes(disadvantaged)));
     row.hidden = !matches;
     if (matches) visible += 1;
   });
   $("reportFilterCount").textContent = `Mostrando ${visible} de ${rows.length}`;
   if (rows.length && visible === 0) {
-    const empty = modelTableMessage("No hay mascotas que coincidan con los filtros.", 10);
+    const empty = modelTableMessage("No hay mascotas que coincidan con los filtros.", 11);
     empty.id = "reportNoMatches";
     body.append(empty);
   }
+}
+
+function renderDisadvantagedSummary(summary = {}) {
+  const counts = summary.por_criterio || {};
+  $("reportDisadvantagedTotal").textContent = `${Number(summary.total_desfavorecidas) || 0} de ${currentPrioritizationReport.total} perfiles`;
+  $("reportSeniorCount").textContent = String(Number(counts.edad_avanzada) || 0);
+  $("reportLargeCount").textContent = String(Number(counts.tamano_grande) || 0);
+  $("reportSpecialCount").textContent = String(Number(counts.condicion_especial) || 0);
+  $("reportUnknownAgeCount").textContent = String(Number(summary.edades_no_indicadas) || 0);
+  $("reportDisadvantagedSummary").hidden = false;
 }
 
 async function exportPrioritizationReport(format) {
@@ -1498,6 +1520,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   $("catalogPriorityFilter").addEventListener("change", applyCatalogFilters);
   $("reportSearch").addEventListener("input", applyPrioritizationFilters);
   $("reportPriorityFilter").addEventListener("change", applyPrioritizationFilters);
+  $("reportDisadvantagedFilter").addEventListener("change", applyPrioritizationFilters);
   $("reportHistoryRows").addEventListener("click", (event) => {
     const button = event.target.closest("button[data-report-history-id]");
     if (button) downloadSavedReport(button.dataset.reportHistoryId, button.dataset.reportFormat, button);

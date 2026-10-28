@@ -43,7 +43,7 @@ class ReportRepository:
 
         rows = self._session.execute(text("""
             SELECT pet.id_mascota, pet.sku, pet.nombre, pet.especie, pet.sexo,
-                   pet.edad_meses, pet.edad_estimada, pet.tamano,
+                   pet.edad_meses, pet.edad_estimada, pet.tamano, pet.tamano_estimado,
                    pet.condicion_especial, pet.condicion_detalle, pet.orden_publicacion,
                    prediction.probabilidad_adopcion, prediction.nivel_prioridad
             FROM snapshot_catalogo pet
@@ -112,7 +112,8 @@ class ReportRepository:
 
         rows = self._session.execute(text("""
             SELECT snapshot.id_mascota, snapshot.sku, snapshot.nombre, snapshot.especie,
-                   snapshot.sexo, snapshot.edad_meses, snapshot.edad_estimada, snapshot.tamano,
+                   snapshot.sexo, snapshot.edad_meses, snapshot.edad_estimada,
+                   snapshot.tamano, snapshot.tamano_estimado,
                    snapshot.condicion_especial, snapshot.condicion_detalle,
                    snapshot.orden_publicacion, prediction.probabilidad_adopcion,
                    prediction.nivel_prioridad

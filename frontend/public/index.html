@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>WUF Predict</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="styles.css?v=hu05-report-4">
+<link rel="stylesheet" href="styles.css?v=hu06-export-row-2">
 <script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
 </head>
 <body>
@@ -301,6 +301,16 @@
           </div>
         </div>
       </div>
+      <div class="card pad report-segment-card" id="reportDisadvantagedSummary" hidden>
+        <div class="card-head"><h2>Perfiles con atributos desfavorecidos</h2><span class="muted" id="reportDisadvantagedTotal"></span></div>
+        <p class="muted report-segment-note">Los criterios pueden superponerse. Las edades no indicadas no cuentan como edad avanzada; los valores estimados se señalan en cada perfil.</p>
+        <div class="report-segment-counts">
+          <span>Edad avanzada: <strong id="reportSeniorCount">0</strong></span>
+          <span>Tamaño grande: <strong id="reportLargeCount">0</strong></span>
+          <span>Condición especial: <strong id="reportSpecialCount">0</strong></span>
+          <span>Edad no indicada: <strong id="reportUnknownAgeCount">0</strong></span>
+        </div>
+      </div>
       <div class="toolbar" id="reportToolbar" hidden>
         <label for="reportSearch">Buscar por SKU o nombre</label>
         <input id="reportSearch" type="search" maxlength="100" placeholder="Ej. WUF0001 o Arcanie" autocomplete="off">
@@ -309,17 +319,27 @@
           <option value="">Todas</option><option value="alta">Alta</option>
           <option value="media">Media</option><option value="baja">Baja</option>
         </select>
+        <label for="reportDisadvantagedFilter">Atributo desfavorecido</label>
+        <select id="reportDisadvantagedFilter">
+          <option value="">Todos</option>
+          <option value="edad_avanzada">Edad avanzada</option>
+          <option value="tamano_grande">Tamaño grande</option>
+          <option value="condicion_especial">Condición especial</option>
+          <option value="ninguno">Ninguno</option>
+        </select>
         <span class="muted" id="reportFilterCount" aria-live="polite"></span>
         <div class="spacer"></div>
-        <button type="button" id="exportReportPdf"><i data-lucide="file-text"></i>Exportar PDF</button>
-        <button type="button" class="primary" id="exportReportXlsx"><i data-lucide="download"></i>Exportar Excel</button>
+        <div class="report-export-actions">
+          <button type="button" id="exportReportPdf"><i data-lucide="file-text"></i>Exportar PDF</button>
+          <button type="button" class="primary" id="exportReportXlsx"><i data-lucide="download"></i>Exportar Excel</button>
+        </div>
       </div>
       <div class="card report-table-card">
         <div class="card-head"><h2>Mascotas disponibles ordenadas por prioridad</h2><span class="muted" id="reportTotal"></span></div>
         <div class="tablewrap report-table-scroll">
           <table>
-            <thead><tr><th>SKU</th><th>Nombre</th><th>Especie</th><th>Sexo</th><th>Edad</th><th>Tamaño</th><th>Condición especial</th><th>Orden</th><th>Probabilidad estimada de adopción</th><th>Prioridad</th></tr></thead>
-            <tbody id="reportRows"><tr><td colspan="10" class="muted">Cargando reporte…</td></tr></tbody>
+            <thead><tr><th>SKU</th><th>Nombre</th><th>Especie</th><th>Sexo</th><th>Edad</th><th>Tamaño</th><th>Condición especial</th><th>Orden</th><th>Probabilidad estimada de adopción</th><th>Prioridad</th><th>Atributos desfavorecidos</th></tr></thead>
+            <tbody id="reportRows"><tr><td colspan="11" class="muted">Cargando reporte…</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -385,6 +405,6 @@
 
 <script src="config.js"></script>
 <div id="toastRegion" class="toast-region" aria-label="Mensajes del sistema"></div>
-<script src="app.js?v=hu05-report-3"></script>
+<script src="app.js?v=hu06-segment-2"></script>
 </body>
 </html>

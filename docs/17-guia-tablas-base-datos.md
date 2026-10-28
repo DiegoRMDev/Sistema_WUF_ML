@@ -2,7 +2,7 @@
 
 ## Alcance
 
-Esta guía describe las **18 tablas** del esquema que se instala en `wuf_predict_v5` con [`../backend/schema_wuf_predict_v4.sql`](../backend/schema_wuf_predict_v4.sql). El nombre del archivo conserva la versión del esquema; la base vigente del proyecto se llama `wuf_predict_v5`.
+Esta guía describe las **18 tablas** del esquema que se instala en `wuf_predict_v6` con [`../backend/schema_wuf_predict_v4.sql`](../backend/schema_wuf_predict_v4.sql). El nombre del archivo conserva la versión del esquema; la base vigente del proyecto se llama `wuf_predict_v6`.
 
 Una **PK** identifica una fila. Una **FK** conecta una fila con otra tabla y protege esa relación. Por ejemplo, un snapshot guarda el ID de la mascota y de la ejecución que lo produjo.
 

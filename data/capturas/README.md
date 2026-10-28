@@ -4,11 +4,11 @@ Puedes organizar aquí las capturas de catálogo en archivos CSV UTF-8. El backe
 
 ## Archivos de demostración incluidos
 
-Se incluyen tres capturas de demostración con fechas en el nombre (`captura_demo_2026-09-28.csv`, `captura_demo_2026-10-05.csv` y `captura_demo_2026-10-12.csv`). Cada archivo contiene 180 SKU estables (540 observaciones en total y 180 mascotas independientes), con distribución inspirada en la tabla de Dataset Histórico del prototipo. Cada semana contiene 108 perfiles `disponible` y 72 `no_disponible`. Para esta primera tanda se mantuvo el estado fijo por SKU en las tres fechas; así se prueba el historial, aunque aún no hay transiciones de estado entre semanas. Los datos y nombres son sintéticos; no se obtuvieron de WUF.
+Para las pruebas actuales de HU01–HU06 usa [`escenario_hu02_variable_v4/`](escenario_hu02_variable_v4/README.md), que contiene tres capturas con filas variables, transiciones HU02 y etiquetas de perfil corregidas. Las carpetas con capturas de 180 SKU estables y `escenario_hu02_variable_v3` se conservan como escenarios anteriores para referencia o reproducibilidad. Todos los datos y nombres son sintéticos; no se obtuvieron de WUF.
 
 La fecha de captura se valida desde el nombre del archivo. Las fechas corresponden a semanas ISO 40, 41 y 42 de 2026. No se incluye `etiqueta_adoptado`: HU02 derivará “Permanece / Salió del catálogo” a partir de estados sucesivos, siguiendo el prototipo. La clase “Salió” es una aproximación del requisito original y no confirma adopción real.
 
-Para probar cantidades variables, altas y ausencias sin alterar este conjunto ni mezclar historial, consulta [`escenario_hu02_variable_v3/README.md`](escenario_hu02_variable_v3/README.md). Ese escenario requiere una base de demostración aislada porque utiliza las mismas fechas y nombres de archivo que el conjunto de 180 filas.
+Para probar cantidades variables, altas y ausencias, consulta [`escenario_hu02_variable_v4/README.md`](escenario_hu02_variable_v4/README.md). Conserva los conteos y transiciones de v3, pero corrige las etiquetas derivadas de edad y condición. La versión v3 permanece disponible para reproducir pruebas anteriores. Los escenarios variables requieren una base de demostración aislada porque usan las mismas fechas y nombres de archivo que otros conjuntos.
 
 Cada archivo representa una captura completa. Mantén el mismo `sku` para la misma mascota en todos los archivos. El backend actualiza `mascota` con la versión más reciente y conserva una fila independiente en `snapshot_catalogo` por ejecución.
 

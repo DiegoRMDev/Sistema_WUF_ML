@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy.orm import Session
 
+from app.domain.disadvantaged_profiles import classify_profile, summarize_profiles
 from app.infrastructure.report_exporter import export_pdf, export_xlsx
 from app.infrastructure.report_repository import ReportRepository
 
@@ -36,11 +37,11 @@ class ReportService:
         for row in source["items"]:
             priority = str(row["nivel_prioridad"]).casefold()
             counts[priority] += 1
-            items.append({
+            items.append(classify_profile({
                 **row,
                 "probabilidad_adopcion": float(row["probabilidad_adopcion"]),
                 "nivel_prioridad": priority.capitalize(),
-            })
+            }))
         return {
             "estado": "listo",
             "mensaje": None,
@@ -49,6 +50,7 @@ class ReportService:
             "modelo_version": source["modelo"]["version"],
             "total": source["total"],
             "prioridades": counts,
+            "segmentacion_desfavorecidas": summarize_profiles(items),
             "items": items,
         }
 
@@ -62,7 +64,11 @@ class ReportService:
             raise ReportServiceError(source["mensaje"])
         generated_at = datetime.now(ZoneInfo("America/Lima")).replace(tzinfo=None)
         report = {**source, "captura": dict(source["captura"]), "modelo": dict(source["modelo"])}
-        report["items"] = [{**row, "nivel_prioridad": str(row["nivel_prioridad"]).capitalize()} for row in source["items"]]
+        report["items"] = [classify_profile({
+            **row,
+            "nivel_prioridad": str(row["nivel_prioridad"]).capitalize(),
+        }) for row in source["items"]]
+        report["segmentacion_desfavorecidas"] = summarize_profiles(report["items"])
         try:
             content = export_pdf(report, generated_at) if formato == "pdf" else export_xlsx(report, generated_at)
             report_id = self._repository.save_report(
@@ -88,8 +94,12 @@ class ReportService:
         report = {
             "captura": {"semana": saved["semana"], "fecha_captura": saved["fecha_captura"]},
             "modelo": {"version": saved["modelo_version"]},
-            "items": [{**item, "nivel_prioridad": str(item["nivel_prioridad"]).capitalize()} for item in saved["items"]],
+            "items": [classify_profile({
+                **item,
+                "nivel_prioridad": str(item["nivel_prioridad"]).capitalize(),
+            }) for item in saved["items"]],
         }
+        report["segmentacion_desfavorecidas"] = summarize_profiles(report["items"])
         try:
             formato = str(saved["formato"]).casefold()
             generated_at = saved["fecha_generacion"]

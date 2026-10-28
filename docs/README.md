@@ -16,6 +16,7 @@ Este directorio convierte el avance académico y el prototipo navegable en una g
 10. [HU04 — Consistencia del catálogo](15-hu04-consistencia.md): DecisionTreeClassifier, etiquetas demo, métricas, diagrama del árbol, permisos y persistencia.
 11. [HU05 — Reporte semanal de priorización](16-hu05-reporte-priorizacion.md): flujo de datos, prioridades, vista, filtros, exportación, historial, permisos y límites actuales.
 12. [Guía de las tablas de la base de datos](17-guia-tablas-base-datos.md): explicación sencilla de las 18 tablas del esquema vigente y de sus relaciones.
+13. [HU08 — Enfoque de indicadores estratégicos](18-enfoque-hu08-indicadores.md): alcance de simulación, relación de OE1–OE3 con los módulos, fórmulas candidatas y pendientes antes del dashboard.
 
 ## Convenciones
 
@@ -24,7 +25,7 @@ Este directorio convierte el avance académico y el prototipo navegable en una g
 - El prototipo guía la estructura visual, la navegación y el flujo esperado; sus cifras y registros estáticos son de muestra. Los datos funcionales se consultan desde PostgreSQL.
 - El backend obtiene la fecha de captura del nombre validado del CSV, calcula semana ISO y audita aparte el momento de importación.
 - La salida del catálogo que HU02 deriva comparando snapshots es una etiqueta proxy y no confirma adopción real.
-- `wuf_predict` y las bases anteriores se conservan. Para preparar la base limpia `wuf_predict_v5` desde pgAdmin, crea la base y ejecuta [`../backend/schema_wuf_predict_v4.sql`](../backend/schema_wuf_predict_v4.sql), que integra el esquema final HU01–HU04 y acepta solo la regla HU04 v2. El nombre v4 del archivo identifica la versión del esquema; no es el nombre de la base. No ejecutes migraciones sobre esa base nueva. Los archivos `upgrade_hu04_*.sql` son solo para bases existentes que necesiten conservar historial anterior; `upgrade_hu03_ml.sql` queda para bases v2/v3 antiguas. Los CSV de HU02/HU03 y las etiquetas HU04 son sintéticos; no representan adopciones ni verificaciones reales.
+- La base activa del proyecto es `wuf_predict_v6`, creada con el esquema integrado [`../backend/schema_wuf_predict_v4.sql`](../backend/schema_wuf_predict_v4.sql). El nombre v4 del archivo identifica la versión del esquema, no el nombre de la base. No ejecutes migraciones sobre la base activa. Los scripts `upgrade_*.sql` se reservan para bases anteriores. Para las pruebas actuales usa los CSV de [`../data/capturas/escenario_hu02_variable_v4/README.md`](../data/capturas/escenario_hu02_variable_v4/README.md); los archivos v3 se conservan para reproducibilidad. Los CSV y etiquetas son sintéticos y no representan adopciones ni verificaciones reales.
 
 ## Orden de lectura
 

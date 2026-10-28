@@ -26,7 +26,7 @@ Una ausencia en un CSV completo o un estado distinto de disponible reinicia la s
 | Capturas consecutivas disponible | Secuencia cronológica de `estado_detectado = disponible`, reiniciada por ausencia, otro estado o intervalo inválido | Predictor |
 | Capturas observadas | Cantidad de capturas donde existe un snapshot del SKU, aunque su estado sea no disponible | Auditoría; excluido de los predictores |
 
-En el escenario actual de CSV `escenario_hu02_variable_v3`, las 86 mascotas disponibles de la última captura quedarían como 57 de prioridad alta, 9 media y 20 baja. Ese reparto muestra que los umbrales distinguen los perfiles antiguos que se mantienen disponibles de las altas recientes; no es una medición de exactitud real.
+El escenario actual de CSV es `escenario_hu02_variable_v4`. Sus transiciones y fechas de publicación conservan el escenario v3; para la captura final hay 86 perfiles disponibles. La distribución de prioridades depende de los parámetros de HU04 y es una referencia de demostración, no una medición de exactitud real.
 
 ## Entrenamiento y evaluación
 
@@ -71,7 +71,7 @@ El servicio aplica la regla a los perfiles disponibles de la captura completa m�
 
 ## Instalación de la extensión
 
-Para la base nueva y vacía `wuf_predict_v5`, ejecuta desde pgAdmin **solo** `backend/schema_wuf_predict_v4.sql`. El nombre v4 del archivo identifica la versión del esquema, mientras que la base creada se llama `wuf_predict_v5`. El instalador ya contiene HU01–HU04 y admite únicamente la regla actual v2; no ejecutes los upgrades después.
+Para la base nueva y vacía `wuf_predict_v6`, ejecuta desde pgAdmin **solo** `backend/schema_wuf_predict_v4.sql`. El nombre v4 del archivo identifica la versión del esquema, mientras que la base creada se llama `wuf_predict_v6`. El instalador ya contiene HU01–HU04 y admite únicamente la regla actual v2; no ejecutes los upgrades después.
 
 Los scripts `upgrade_hu04_consistency.sql` y `upgrade_hu04_revision_priority_v2.sql` se conservan únicamente para actualizar bases existentes y mantienen compatibilidad con registros v1/v2. No son necesarios para la base limpia que usarás.
 
@@ -90,7 +90,7 @@ CONSISTENCY_MAX_CAPTURE_GAP_DAYS=14
 
 Con al menos tres capturas completas, ingresa como Analista a **Entrenamiento**, selecciona profundidad y porcentaje de prueba, y pulsa **Entrenar árbol y evaluar catálogo**. El resultado aparecerá en **Perfiles para revisión** para Analista y Área de Ayuda. Cada entrenamiento crea una versión nueva y pasa a ser vigente; las versiones anteriores se conservan para consulta.
 
-Si una base existente ya tiene HU04 instalada y contiene evaluaciones v1, `backend/upgrade_hu04_revision_priority_v2.sql` amplía la restricción para permitir guardar v2 sin invalidar esas evaluaciones antiguas. No se aplica a `wuf_predict_v5`, creada con `schema_wuf_predict_v4.sql`.
+Si una base existente ya tiene HU04 instalada y contiene evaluaciones v1, `backend/upgrade_hu04_revision_priority_v2.sql` amplía la restricción para permitir guardar v2 sin invalidar esas evaluaciones antiguas. No se aplica a `wuf_predict_v6`, creada con `schema_wuf_predict_v4.sql`.
 
 ## Pendiente para validar con datos reales
 

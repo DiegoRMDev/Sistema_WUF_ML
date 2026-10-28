@@ -1,6 +1,6 @@
 # Guía para iniciar WUF Predict en Windows
 
-Esta guía explica cómo configurar y ejecutar la versión actual del proyecto en Windows con PowerShell, PostgreSQL 16, la base `wuf_predict_v5` e importaciones manuales de CSV.
+Esta guía explica cómo configurar y ejecutar la versión actual del proyecto en Windows con PowerShell, PostgreSQL 16, la base `wuf_predict_v6` e importaciones manuales de CSV.
 
 ## Requisitos
 
@@ -13,14 +13,14 @@ Las dependencias gratuitas y abiertas del backend están declaradas en `backend/
 
 ## 1. Preparar PostgreSQL 16
 
-La base de datos vigente es **`wuf_predict_v5`**. El archivo [`../backend/schema_wuf_predict_v4.sql`](../backend/schema_wuf_predict_v4.sql) crea el esquema actual completo para HU01–HU04 y las tablas que HU05 necesita.
+La base de datos vigente es **`wuf_predict_v6`**. El archivo [`../backend/schema_wuf_predict_v4.sql`](../backend/schema_wuf_predict_v4.sql) crea el esquema actual completo para HU01–HU04 y las tablas que HU05 necesita.
 
-1. En pgAdmin, crea `wuf_predict_v5` con codificación UTF8 si todavía no existe.
-2. Abre Query Tool conectado específicamente a `wuf_predict_v5`.
+1. En pgAdmin, crea `wuf_predict_v6` con codificación UTF8 si todavía no existe.
+2. Abre Query Tool conectado específicamente a `wuf_predict_v6`.
 3. Ejecuta `backend/schema_wuf_predict_v4.sql` una sola vez, solo si la base está vacía.
 4. Si el esquema ya está instalado y contiene datos, no vuelvas a ejecutar el archivo: se usa la base tal como está.
 
-Para esta base nueva ejecuta solo ese esquema; no apliques scripts `upgrade_*.sql`. La configuración de conexión del backend debe apuntar a `wuf_predict_v5`.
+Para esta base nueva ejecuta solo ese esquema; no apliques scripts `upgrade_*.sql`. La configuración de conexión del backend debe apuntar a `wuf_predict_v6`.
 
 ## 2. Crear el entorno e instalar dependencias
 
@@ -76,7 +76,7 @@ Copy-Item .env.example .env
 Abre `backend/.env` y confirma estos valores. Reemplaza el usuario y la contraseña por las credenciales reales de PostgreSQL:
 
 ```dotenv
-DATABASE_URL=postgresql+psycopg://USUARIO:CLAVE@localhost:5432/wuf_predict_v5
+DATABASE_URL=postgresql+psycopg://USUARIO:CLAVE@localhost:5432/wuf_predict_v6
 JWT_SECRET=REEMPLAZAR_POR_UN_SECRETO_ALEATORIO_DE_AL_MENOS_32_CARACTERES
 ```
 
@@ -169,7 +169,7 @@ No abras `index.html` directamente como archivo: el servidor local permite la co
 5. Para HU04, entrena y consulta el árbol de decisión. Se necesitan capturas completas suficientes para formar observaciones.
 6. En HU05, Analista o Marketing pueden consultar el reporte de la última captura y exportarlo a PDF o Excel. Se genera a demanda; no hay programación automática semanal.
 
-Los CSV de demostración están en `data/capturas/`. El conjunto `escenario_hu02_variable_v3` contiene las capturas variables usadas para HU02–HU04. Son datos sintéticos y sus etiquetas no representan adopciones ni verificaciones reales.
+Los CSV de demostración están en `data/capturas/`. Para las pruebas actuales de HU01–HU06 usa los tres archivos de `escenario_hu02_variable_v4`; v3 se conserva para reproducir pruebas anteriores. V4 mantiene el escenario variable 180→165→190, corrige las etiquetas derivadas de atributos y las edades faltantes. Son datos sintéticos y sus etiquetas no representan adopciones ni verificaciones reales.
 
 Si una importación resulta parcial o fallida, revisa las incidencias mostradas en la interfaz, corrige el archivo y vuelve a importarlo con un nombre que represente la fecha de captura correcta.
 
@@ -182,10 +182,18 @@ En los siguientes inicios no recrees la base, el entorno virtual, los usuarios n
 ## Solución de problemas
 
 - **No se activa `.venv`:** aplica `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass` en esa ventana y vuelve a activar el entorno.
-- **La API no conecta a PostgreSQL:** confirma que PostgreSQL 16 esté en ejecución, que `wuf_predict_v5` exista y que `DATABASE_URL` tenga las credenciales correctas.
+- **La API no conecta a PostgreSQL:** confirma que PostgreSQL 16 esté en ejecución, que `wuf_predict_v6` exista y que `DATABASE_URL` tenga las credenciales correctas.
 - **La API indica que faltan dependencias:** activa `.venv`, ejecuta `python -m pip install -e .` y reinicia Uvicorn.
-- **El login falla:** confirma que el usuario fue creado en `wuf_predict_v5` y que `config.js` apunta a la API local.
+- **El login falla:** confirma que el usuario fue creado en `wuf_predict_v6` y que `config.js` apunta a la API local.
 - **Error CORS:** el origen abierto en el navegador debe estar listado en `CORS_ORIGINS`, por ejemplo `http://127.0.0.1:5500`; no agregues `/api/v1` a ese valor.
 - **La importación CSV falla o es parcial:** revisa el mensaje de incidencias y el contrato de [`../data/capturas/README.md`](../data/capturas/README.md). El sistema usa la importación manual y no consulta WUF.
 
 Para más contexto sobre la recolección manual, consulta [`10-hu01-recoleccion.md`](10-hu01-recoleccion.md); para el reporte semanal, consulta [`16-hu05-reporte-priorizacion.md`](16-hu05-reporte-priorizacion.md).
+
+## Pendiente para el cierre del proyecto: instalación limpia única
+
+Al terminar el desarrollo se consolidará el esquema final en un único archivo SQL de instalación limpia, sin requerir migraciones para una instalación nueva. La base final podría llamarse `wuf_predict_db`; el nombre todavía no está definido y se configurará mediante `DATABASE_URL` en `backend/.env`, no se fijará en el código.
+
+En ese cierre también se debe revisar `backend/app/infrastructure/database.py`: reemplazar las comprobaciones que aceptan esquemas antiguos por una validación del esquema final completo, y actualizar sus errores para que indiquen la ruta del SQL limpio vigente y que se revisen tanto `DATABASE_URL` como la instalación del esquema. El backend solo debe detectar una configuración/esquema incorrecto; no debe ejecutar SQL ni crear o borrar bases automáticamente.
+
+Los scripts `upgrade_*.sql` podrán conservarse como referencia histórica si se desea, pero no deben aparecer como pasos para instalar el proyecto final desde cero. Al completar la consolidación, actualizar esta guía, `backend/.env.example` y las referencias de instalación en `docs/` con el nombre y archivo SQL definitivos.

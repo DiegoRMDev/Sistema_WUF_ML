@@ -11,6 +11,7 @@ from typing import Any
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.worksheet.table import Table, TableStyleInfo
+from openpyxl.utils import get_column_letter
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_LEFT, TA_RIGHT
 from reportlab.lib.pagesizes import landscape, letter
@@ -22,6 +23,7 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table as Pd
 HEADERS = [
     "SKU", "Nombre", "Especie", "Sexo", "Edad", "Tamaño", "Condición especial",
     "Orden de publicación", "Probabilidad estimada de adopción", "Prioridad",
+    "Atributos desfavorecidos",
 ]
 
 
@@ -44,6 +46,17 @@ def _condition(item: dict[str, Any]) -> str:
     return item.get("condicion_detalle") or "Condición especial"
 
 
+def _disadvantaged_attributes(item: dict[str, Any]) -> str:
+    """Resume los criterios detectados y conserva visible la edad desconocida."""
+    criteria = [
+        f"{criterion['nombre']}{' (est.)' if criterion['estimado'] else ''}"
+        for criterion in item.get("criterios_desfavorecidos", [])
+    ]
+    if item.get("edad_desconocida"):
+        criteria.append("Edad no indicada")
+    return ", ".join(criteria) if criteria else "Ninguno"
+
+
 def _excel_text(value: Any) -> str:
     """Fuerza texto en Excel y bloquea fórmulas que pudieran venir de los CSV."""
     text = str(value)
@@ -58,6 +71,7 @@ def _rows(items: list[dict[str, Any]], *, excel_safe: bool = False) -> list[list
         as_text(_age(item.get("edad_meses"), item.get("edad_estimada"))),
         as_text(str(item["tamano"]).capitalize()), as_text(_condition(item)), int(item["orden_publicacion"]),
         float(item["probabilidad_adopcion"]), str(item["nivel_prioridad"]).capitalize(),
+        as_text(_disadvantaged_attributes(item)),
     ] for item in items]
 
 
@@ -85,21 +99,25 @@ def export_xlsx(report: dict[str, Any], generated_at: datetime) -> bytes:
     sheet.append([_priority_summary(report["items"])])
     sheet.merge_cells(start_row=3, start_column=1, end_row=3, end_column=len(HEADERS))
     sheet["A3"].font = Font(bold=True, color="28344F")
+    sheet.append(["Segmento desfavorecido: edad avanzada (96 meses o más), tamaño grande o condición especial. Los valores estimados se marcan; una edad no indicada no cumple el criterio etario."])
+    sheet.merge_cells(start_row=4, start_column=1, end_row=4, end_column=len(HEADERS))
+    sheet["A4"].font = Font(italic=True, color="6B6F76")
     sheet.append(HEADERS)
-    for cell in sheet[4]:
+    for cell in sheet[5]:
         cell.font = Font(bold=True, color="FFFFFF")
         cell.fill = PatternFill("solid", fgColor="465472")
         cell.alignment = Alignment(wrap_text=True, vertical="center")
-    sheet.row_dimensions[4].height = 32
+    sheet.row_dimensions[5].height = 32
     for values in _rows(report["items"], excel_safe=True):
         sheet.append(values)
         sheet.cell(sheet.max_row, 9).number_format = "0.0%"
-    widths = [14, 24, 14, 12, 20, 14, 34, 19, 28, 14]
+    widths = [14, 24, 14, 12, 20, 14, 34, 19, 28, 14, 38]
     for index, width in enumerate(widths, start=1):
         sheet.column_dimensions[chr(64 + index)].width = width
-    sheet.freeze_panes = "A5"
+    sheet.freeze_panes = "A6"
     if report["items"]:
-        table = Table(displayName="PrioritizacionSemanal", ref=f"A4:J{sheet.max_row}")
+        last_column = get_column_letter(len(HEADERS))
+        table = Table(displayName="PrioritizacionSemanal", ref=f"A5:{last_column}{sheet.max_row}")
         table.tableStyleInfo = TableStyleInfo(
             name="TableStyleMedium2", showFirstColumn=False, showLastColumn=False,
             showRowStripes=True, showColumnStripes=False,
@@ -134,6 +152,11 @@ def export_pdf(report: dict[str, Any], generated_at: datetime) -> bytes:
             meta_style,
         ),
         Paragraph(escape(_priority_summary(report["items"])), meta_style),
+        Paragraph(
+            "Segmento desfavorecido: edad avanzada (96 meses o más), tamaño grande o condición especial. "
+            "Los valores estimados se marcan; una edad no indicada no cumple el criterio etario.",
+            meta_style,
+        ),
         Spacer(1, 10),
     ]
     data: list[list[Any]] = [[Paragraph(escape(header), cell_style) for header in HEADERS]]
@@ -145,7 +168,7 @@ def export_pdf(report: dict[str, Any], generated_at: datetime) -> bytes:
             for index, value in enumerate(formatted)
         ])
     available_width = landscape(letter)[0] - 0.7 * inch
-    fractions = [0.075, 0.105, 0.075, 0.06, 0.09, 0.07, 0.17, 0.105, 0.17, 0.08]
+    fractions = [0.055, 0.085, 0.055, 0.045, 0.075, 0.055, 0.12, 0.07, 0.12, 0.055, 0.265]
     column_widths = [available_width * fraction / sum(fractions) for fraction in fractions]
     table = PdfTable(data, colWidths=column_widths, repeatRows=1, hAlign="LEFT")
     table.setStyle(TableStyle([

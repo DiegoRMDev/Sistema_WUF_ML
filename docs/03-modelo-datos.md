@@ -228,7 +228,7 @@ El archivo `schema.sql` crea el modelo físico documentado y las extensiones de 
 
 ## Esquema v2 para HU02 y el prototipo
 
-Las bases `wuf_predict_v2`, `wuf_predict_v3` y la nueva base limpia `wuf_predict_v5` parten del diccionario original y acomodan las extensiones necesarias para cumplir RF03 y la vista del prototipo. El SQL completo está en [`../backend/schema_wuf_predict_v2.sql`](../backend/schema_wuf_predict_v2.sql). Las bases anteriores se conservan sin cambios.
+Las bases anteriores `wuf_predict_v2` y `wuf_predict_v3` usaron revisiones previas del esquema para HU02. La base activa `wuf_predict_v6` usa el instalador integrado [`../backend/schema_wuf_predict_v4.sql`](../backend/schema_wuf_predict_v4.sql), que reúne las estructuras necesarias para los módulos implementados. El archivo [`../backend/schema_wuf_predict_v2.sql`](../backend/schema_wuf_predict_v2.sql) se conserva como referencia histórica; no se ejecuta sobre la base actual.
 
 Cambios del diseño v2:
 
@@ -273,11 +273,13 @@ Una captura CSV debe representar un catálogo completo y una ejecución completa
 
 La UI del prototipo muestra semanas 6, 7 y 8 como contenido ilustrativo. En los CSV demo fechados 28-sep, 05-oct y 12-oct de 2026, el calendario ISO corresponde a semanas 40, 41 y 42. Se conservará la vista semanal, pero los datos funcionales mostrarán su semana calendario ISO, no copiarán los números estáticos del prototipo.
 
-### Crear la base limpia `wuf_predict_v5` en pgAdmin
+### Instalación limpia de `wuf_predict_v6` en pgAdmin
+
+Estos son los pasos de creación originales. La base actual ya existe: no vuelvas a ejecutar el esquema sobre ella ni apliques scripts de upgrade a `wuf_predict_v6`.
 
 1. En pgAdmin, conéctate al mismo servidor PostgreSQL 16 que usa el proyecto.
-2. En **Databases**, crea la base `wuf_predict_v5` con propietario igual al usuario configurado para la aplicación; conserva las bases anteriores.
-3. Selecciona `wuf_predict_v5`, abre **Query Tool**, carga [`../backend/schema_wuf_predict_v4.sql`](../backend/schema_wuf_predict_v4.sql) y ejecútalo una sola vez. Aunque el nombre del archivo conserva la versión del esquema, instala directamente el esquema final HU01–HU04, incluida la regla HU04 v2; no ejecutes migraciones después.
+2. En **Databases**, crea la base `wuf_predict_v6` con propietario igual al usuario configurado para la aplicación; conserva las bases anteriores.
+3. Selecciona `wuf_predict_v6`, abre **Query Tool**, carga [`../backend/schema_wuf_predict_v4.sql`](../backend/schema_wuf_predict_v4.sql) y ejecútalo una sola vez. Aunque el nombre del archivo conserva la versión del esquema, instala directamente el esquema final HU01–HU04, incluida la regla HU04 v2; no ejecutes migraciones después.
 4. Comprueba que se crearon las tablas y restricciones sin error. El script usa transacción y no contiene `DROP DATABASE` ni elimina otra base.
 5. Si instalaste una primera revisión del esquema v2 que no tiene la tabla `dataset_ejecucion`, aplica una sola vez [`../backend/upgrade_wuf_predict_v2_dataset.sql`](../backend/upgrade_wuf_predict_v2_dataset.sql). El esquema completo actual ya incluye esa tabla y no requiere esa migración.
 6. El backend HU01 ahora acepta ambos esquemas, calcula semana ISO desde el nombre del archivo, no persiste la etiqueta sintética y valida la relación mascota/SKU/snapshot/ejecución antes de confirmar. Cambia `DATABASE_URL` local para apuntar al nombre de base elegido y reinicia la API solo cuando la base y el usuario estén preparados. No publiques el `.env`.

@@ -1,5 +1,7 @@
 # HU01 — Recolección desde CSV
 
+> Esta guía contiene antecedentes de la evolución del esquema. La configuración vigente usa `wuf_predict_v6` y los archivos de demostración de `data/capturas/escenario_hu02_variable_v4/`; para iniciar o reiniciar el entorno sigue [`11-inicio-local.md`](11-inicio-local.md). No apliques las migraciones históricas descritas aquí a la base actual.
+
 ## Componentes
 
 HU01 conserva las tres capas del proyecto:

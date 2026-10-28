@@ -1,9 +1,9 @@
 -- Instalador único del esquema limpio v4 para PostgreSQL 16.
--- Crea primero wuf_predict_v5 desde pgAdmin y ejecuta este archivo en su Query Tool.
+-- Crea primero wuf_predict_v6 desde pgAdmin y ejecuta este archivo en su Query Tool.
 -- Este script crea las tablas dentro de la base seleccionada; no crea ni elimina bases.
 
 -- WUF Predict v4: esquema completo para HU01/HU02/HU03/HU04 sobre PostgreSQL 16.
--- Ejecutar SOLO conectado a una base vacía llamada wuf_predict_v5.
+-- Ejecutar SOLO conectado a una base vacía llamada wuf_predict_v6.
 -- No crea ni elimina bases; conserva backend/schema.sql para la instalación anterior.
 -- Incluye desde el inicio las estructuras de HU03 y HU04, incluida la fuente de regla v2.
 -- En una base nueva, ejecuta solo este archivo: no ejecutes upgrades HU03/HU04 después.

@@ -16,13 +16,13 @@ La interfaz conserva el término solicitado **“Probabilidad estimada de adopci
 
 ## Validación local con el escenario controlado
 
-En la prueba local de `escenario_hu02_variable_v3`, los conteos de PostgreSQL coinciden con los CSV de las semanas 40/41/42: 180/165/190 perfiles. El snapshot final contiene 190 SKU únicos (86 disponibles, 104 no disponibles y 0 sin publicar); se cotejaron sus atributos con el CSV final y no hubo diferencias. La cohorte HU02 sigue siendo de 108 registros: 66 `permanece` y 42 `salio_catalogo`.
+El escenario actual `escenario_hu02_variable_v4` contiene capturas de las semanas ISO 40/41/42 con 180/165/190 perfiles. La captura final tiene 86 disponibles, 104 no disponibles y 0 sin publicar. La cohorte HU02 mantiene 108 registros: 66 `permanece` y 42 `salio_catalogo`. V4 conserva esos resultados y corrige las etiquetas derivadas de edad/condición y el indicador de edad desconocida.
 
 El modelo vigente de esa prueba generó 86 predicciones, una por cada perfil disponible; no generó predicciones para perfiles no disponibles. Los atributos visibles de los 190 perfiles del snapshot final coincidieron con el CSV importado. Las altas incluidas en la última captura no se agregan retroactivamente a la cohorte inicial de HU02.
 
 ## Escenario sintético HU02/HU03
 
-Se actualizaron los tres CSV de [`data/capturas/escenario_hu02_variable_v3/`](../data/capturas/escenario_hu02_variable_v3/README.md) y el generador [`scripts/generar_escenario_hu02_variable.py`](../scripts/generar_escenario_hu02_variable.py). Las altas tienen nombres plausibles y atributos variados; el generador preserva el escenario 180→165→190, la cohorte de 108 perfiles y sus 66/42 etiquetas, junto con las transiciones acordadas. El validador de HU01 aceptó las tres capturas sin rechazos.
+Los tres CSV activos están en [`data/capturas/escenario_hu02_variable_v4/`](../data/capturas/escenario_hu02_variable_v4/README.md) y se generan con [`scripts/generar_escenario_hu02_variable_v4.py`](../scripts/generar_escenario_hu02_variable_v4.py). V4 conserva el escenario 180→165→190, la cohorte de 108 perfiles y sus 66/42 etiquetas, junto con las transiciones acordadas; las etiquetas de edad y condición se derivan de los atributos actuales. El validador HU01 aceptó las tres capturas sin rechazos.
 
 Para que la clase `salio_catalogo` permita explicar el aprendizaje, los datos de demostración usan una asociación sintética moderada con edad, tamaño y condición especial, más variación aleatoria. La regla no usa raza, sexo, pelaje ni energía. No es evidencia empírica de WUF: la salida del catálogo sigue siendo un proxy que no verifica la adopción, y ninguna de estas asociaciones debe explicarse como causa.
 
@@ -86,7 +86,7 @@ Los archivos `backend/app/domain/model_training.py`, `backend/app/services/model
 ## Configuración inicial en Windows
 
 1. Haz una copia de seguridad de PostgreSQL.
-2. Para la base de demostración limpia actual, crea primero `wuf_predict_v5` desde pgAdmin y ejecuta `backend/schema_wuf_predict_v4.sql`. El archivo conserva v4 como versión del esquema e integra HU01–HU04. No ejecutes después las migraciones, que quedan para bases antiguas que las necesiten.
+2. Para la base de demostración limpia actual, crea primero `wuf_predict_v6` desde pgAdmin y ejecuta `backend/schema_wuf_predict_v4.sql`. El archivo conserva v4 como versión del esquema e integra HU01–HU04. No ejecutes después las migraciones, que quedan para bases antiguas que las necesiten.
 3. Desde PowerShell entra a `backend/`, activa `.venv` y actualiza las dependencias del proyecto:
 
    ```powershell

@@ -62,7 +62,7 @@ Las historias son módulos funcionales desplegables por sprint. Las tareas trans
 
 **Estado de implementación: flujo demo implementado, pendiente de etiquetas reales verificadas.** La sección Entrenamiento permite al Analista entrenar `DecisionTreeClassifier` y elegir profundidad máxima (1–4; valor inicial 3) y porcentaje de prueba (20 %, 25 % o 30 %). Las variables predictoras son días desde publicación y capturas consecutivas disponible; capturas observadas queda en auditoría porque también cuenta estados no disponibles. La regla versionada `prioridad_revision_hu04_v2` establece prioridad alta con al menos tres capturas disponibles consecutivas y 180 días desde publicación; prioridad media si no es alta y cumple al menos dos capturas consecutivas o 60 días; baja en los demás casos. Las secuencias se reinician ante ausencia, estado distinto o fechas repetidas; el intervalo entre capturas debe ser de 1–14 días. La regla asigna directamente las prioridades operativas de **Perfiles para revisión**. El árbol se entrena para aproximarla y sus métricas, matriz, importancia Gini, reglas y diagrama describen ese ajuste; además se registra si cada predicción del árbol coincide con la regla. Así las combinaciones futuras no representadas no cambian la prioridad asignada. Las métricas evalúan la reproducción de etiquetas provisionales, no desactualización real: los CSV no verifican el estado del albergue. La vista identifica el modelo vigente y versiones históricas. Ver [`15-hu04-consistencia.md`](15-hu04-consistencia.md) para límites y evidencia.
 
-Las prioridades siguen siendo etiquetas provisionales derivadas de la regla; las métricas indican si el árbol la reproduce y no validan una detección real. En los CSV demo actuales, la captura final contiene 86 perfiles disponibles: 57 alta, 9 media y 20 baja según la regla v2. Las evaluaciones guardan la prioridad directa de la regla y, por separado, la predicción del árbol y su coincidencia. El esquema limpio [`schema_wuf_predict_v4.sql`](../backend/schema_wuf_predict_v4.sql) incluye las tablas HU04 y solo permite la fuente v2, sin migraciones posteriores. El upgrade [`upgrade_hu04_revision_priority_v2.sql`](../backend/upgrade_hu04_revision_priority_v2.sql) queda para bases antiguas con evaluaciones v1 que deban conservarse. La metodología, configuración e instrucciones están en [`15-hu04-consistencia.md`](15-hu04-consistencia.md).
+Las prioridades siguen siendo etiquetas provisionales derivadas de la regla; las métricas indican si el árbol la reproduce y no validan una detección real. En los CSV v4, la captura final contiene 86 perfiles disponibles; la prioridad de referencia se deriva de la regla v2 y puede cambiar si cambian los CSV o parámetros. Las evaluaciones guardan la prioridad directa de la regla y, por separado, la predicción del árbol y su coincidencia. El esquema que instaló `wuf_predict_v6` es [`schema_wuf_predict_v4.sql`](../backend/schema_wuf_predict_v4.sql); la versión v4 corresponde al archivo de esquema. Los scripts de upgrade quedan reservados para bases antiguas. La metodología, configuración e instrucciones están en [`15-hu04-consistencia.md`](15-hu04-consistencia.md).
 
 - Entrenar por grupos de SKU con datos históricos de ejecuciones completas, evitando que una mascota aparezca a ambos lados de la partición.
 - Evaluar perfiles disponibles de la última captura completa; guardar árbol/version, parámetros, métricas, artefacto, hash, indicadores y explicación por mascota.
@@ -89,11 +89,12 @@ La guía detallada del flujo, la vista, la persistencia, los endpoints y las lim
 
 ## HU06 - Perfiles desfavorecidos (S3, media)
 
-- Catálogo de criterios: edad avanzada, tamaño grande y etiquetas de condición especial; configuración/versión de umbrales.
-- Segmentar dentro del reporte sin confundir asociación con causalidad ni usar atributo no disponible.
-- Mostrar criterios aplicados por perfil y permitir sección vacía informativa.
+- **Estado: completo para el alcance acordado.** HU06 está integrado en el reporte de HU05. Analista y Marketing pueden ver el segmento en la tabla, filtrar por criterio y obtener las razones por perfil en las exportaciones PDF/Excel.
+- La regla fija de demostración considera edad avanzada desde 96 meses, tamaño `grande` o `condicion_especial=true`. Los criterios pueden superponerse; cada mascota aparece una sola vez y conserva todas sus razones.
+- Las edades y tamaños estimados pueden calificar y se marcan como estimados. La edad desconocida no cumple el criterio etario; puede aparecer como información faltante y la mascota todavía puede calificar por otro criterio.
+- El cálculo usa los atributos del snapshot y no altera las predicciones ni el orden de difusión de HU05. No requiere cambios de esquema en la base actual.
 
-**Aceptación base:** lista refleja reglas publicadas y permite saber por qué se incluyó cada mascota; casos sin dato se identifican como desconocidos, no como falsos.
+**Alcance:** la segmentación identifica atributos asociados; no demuestra causalidad ni calcula por sí sola la tasa estratégica OE3. Para el detalle funcional, consulta [`16-hu05-reporte-priorizacion.md`](16-hu05-reporte-priorizacion.md).
 
 ## HU07 - Alertas y atención (S3, media)
 
@@ -108,6 +109,8 @@ La guía detallada del flujo, la vista, la persistencia, los endpoints y las lim
 - Consultas agregadas sobre ejecuciones/reportes/adopciones verificadas; filtro temporal y estado “sin datos”.
 - Definir fórmulas/denominadores OE1-OE3 con negocio; mostrar meta, valor, tendencia, periodo de cálculo y timestamp.
 - Misma API para tres roles; respuesta paginada cuando lista actividad.
+
+**Contexto acordado para el dashboard simulado:** WUF Predict usa datos de prueba para representar el negocio, por lo que HU08 debe identificar como simulados los resultados basados en CSV demo o etiquetas proxy. OE1–OE3, sus fórmulas candidatas, limitaciones actuales y pendientes se detallan en [`18-enfoque-hu08-indicadores.md`](18-enfoque-hu08-indicadores.md). En particular, la evaluación actual de HU04 reproduce una regla de prioridad y no mide directamente la exactitud estratégica de OE2.
 
 **Aceptación base:** cada KPI enlaza definición y fuente; se recalcula tras ejecuciones relevantes; nunca usar números de muestra del HTML como métricas reales.
 
