@@ -80,6 +80,7 @@ def build_proxy_samples(
     available_streak: dict[str, int] = {sku: 0 for sku in all_skus}
     observed_count: dict[str, int] = {sku: 0 for sku in all_skus}
     last_available_date: dict[str, date | None] = {sku: None for sku in all_skus}
+    available_since_date: dict[str, date | None] = {sku: None for sku in all_skus}
     samples: list[dict[str, Any]] = []
 
     # Recorre las capturas en orden calendario para medir permanencia sin mirar al futuro.
@@ -90,12 +91,14 @@ def build_proxy_samples(
             if row is None:
                 available_streak[sku] = 0
                 last_available_date[sku] = None
+                available_since_date[sku] = None
                 continue
             observed_count[sku] += 1
             state = str(row.get("estado_detectado", "")).casefold()
             if state != "disponible":
                 available_streak[sku] = 0
                 last_available_date[sku] = None
+                available_since_date[sku] = None
                 continue
 
             # Un hueco largo rompe la continuidad: tres CSV separados por meses no
@@ -105,7 +108,10 @@ def build_proxy_samples(
                 gap_days = (capture_date - previous_date).days
                 if gap_days < 1 or gap_days > max_capture_gap_days:
                     available_streak[sku] = 0
+                    available_since_date[sku] = None
             available_streak[sku] += 1
+            if available_since_date[sku] is None:
+                available_since_date[sku] = capture_date
             last_available_date[sku] = capture_date
             publication_age = max(
                 0, (capture_date - _as_date(row["fecha_publicacion"])).days
@@ -114,6 +120,11 @@ def build_proxy_samples(
                 "dias_publicacion": publication_age,
                 "capturas_disponible": available_streak[sku],
                 "capturas_observadas": observed_count[sku],
+                # Mide solo el tiempo sin cambio observado desde la primera captura
+                # disponible de la secuencia continua; no confirma el estado real en WUF.
+                "dias_sin_cambio_observado": max(
+                    0, (capture_date - available_since_date[sku]).days
+                ),
             }
             proxy_label = review_priority(
                 features,

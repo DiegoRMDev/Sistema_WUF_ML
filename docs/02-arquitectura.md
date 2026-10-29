@@ -58,7 +58,7 @@ Respuestas de error estables, paginación y filtros tipados deben ser comunes. N
 4. Construir dataset desde snapshots identificables y política de etiquetas versionada; persistir metadatos y hash/versión del CSV.
 5. HU03 prepara los atributos de la captura de referencia, excluye las etiquetas indeterminadas, separa perfiles por SKU y entrena un pipeline reproducible. Registra métricas, parámetros y motivos excluidos; el artefacto se conserva fuera del webroot y se verifica por SHA-256.
 6. Un modelo candidato solo puede publicarse si supera el umbral configurable de Accuracy. La publicación es explícita; calcula predicciones para mascotas disponibles de la última captura completa y registra también el `id_ejecucion` fuente. Tras una captura nueva, el Analista puede actualizar predicciones con el modelo vigente.
-7. HU04 entrena `DecisionTreeClassifier` para estimar riesgos de perfiles disponibles usando snapshots y etiquetas demo versionadas; guarda evaluación y explicación auditables. HU07 recibirá después la responsabilidad de notificar y registrar atención.
+7. HU04 entrena `DecisionTreeClassifier` para aproximar prioridades de revisión con etiquetas demo versionadas. Al guardar una evaluación, HU07 crea o actualiza alertas internas de prioridad alta; Área de Ayuda registra las transiciones con usuario, fecha y nota.
 8. Reportes y dashboard se construyen desde datos persistidos y exponen periodo, fecha de cálculo y versión/regla usada.
 
 ## Estructura objetivo propuesta
@@ -106,7 +106,7 @@ Actualmente hay `docs/`, `prototipo/`, `frontend/public/`, `backend/app/` (api, 
 
 ## Esquema v2/v3/v4 para HU02, HU03, HU04 y el prototipo
 
-Para HU02 se preparó [`../backend/schema_wuf_predict_v2.sql`](../backend/schema_wuf_predict_v2.sql), derivado del diccionario físico original. El instalador [`../backend/schema_wuf_predict_v4.sql`](../backend/schema_wuf_predict_v4.sql) integra el esquema HU01–HU04 usado para instalar la base actual `wuf_predict_v6`, incluidas las restricciones de HU04 v2. En bases anteriores que aún no tengan HU04, los scripts `upgrade_hu04_*.sql` agregan las estructuras necesarias; [`../backend/upgrade_hu03_ml.sql`](../backend/upgrade_hu03_ml.sql) queda para bases v2/v3 antiguas. Estos upgrades no se ejecutan sobre `wuf_predict_v6`. El instalador configura tablas dentro de una base creada previamente desde pgAdmin; no crea ni borra bases. El nombre v4 del archivo identifica la versión del esquema, no la base de datos.
+Para HU02 se preparó [`../backend/schema_wuf_predict_v2.sql`](../backend/schema_wuf_predict_v2.sql), derivado del diccionario físico original. El instalador v4 creó HU01–HU04 en la base anterior `wuf_predict_v6`; el instalador limpio [`../backend/schema_wuf_predict_v5.sql`](../backend/schema_wuf_predict_v5.sql) integra ahora HU01–HU07 y debe ejecutarse en una base nueva, sugerida `wuf_predict_v7`. Ningún instalador elimina bases y los scripts `upgrade_*.sql` son solo para instalaciones históricas. Configura `DATABASE_URL` con la base que corresponda al código actual.
 
 El backend de HU01 valida la fecha desde el nombre del archivo, y el guardado comprueba mascota/SKU/snapshot/ejecución. HU02 requiere el esquema v2 completo, genera la cohorte de mascotas disponibles al inicio y persiste snapshots, ejecuciones fuente, etiquetas y hash. Consulta [`13-hu02-dataset-historico.md`](13-hu02-dataset-historico.md).
 

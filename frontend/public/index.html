@@ -270,14 +270,21 @@
     </section>
 
     <section class="view hidden" id="view-alertas">
-      <h1>Perfiles para revisión</h1>
-      <p class="lead" id="consistencyAlertsSummary">Prioridades de revisión calculadas para la última captura completa.</p>
+      <h1>Alertas de desactualización</h1>
+      <p class="lead" id="consistencyAlertsSummary">Alertas de prioridad alta generadas al evaluar una captura completa. Cada caso requiere verificación del Área de Ayuda.</p>
       <div class="consistency-filters">
         <label for="consistencySearch">Buscar por SKU o nombre</label><input id="consistencySearch" type="search" placeholder="SKU o nombre">
-        <label for="consistencyRiskFilter">Riesgo</label><select id="consistencyRiskFilter"><option value="todos">Todos</option><option value="alto">Alto</option><option value="medio">Medio</option><option value="bajo">Bajo</option></select>
+        <label for="alertStateFilter">Estado</label><select id="alertStateFilter"><option value="todos">Todos</option><option value="pendiente">Pendiente</option><option value="en_revision">En revisión</option><option value="resuelta">Resuelta</option></select>
         <span class="muted" id="consistencyFilterCount">—</span>
       </div>
-      <div class="card" id="consistencyItems" aria-live="polite"><p class="muted pad">Todavía no hay evaluaciones.</p></div>
+      <section class="alerts-group" aria-labelledby="openAlertsTitle">
+        <h2 class="alerts-group-title" id="openAlertsTitle">Pendientes y en revisión <span class="alerts-group-count" id="openAlertsCount">—</span></h2>
+        <div class="card" id="consistencyItems" aria-live="polite"><p class="muted pad">Cargando alertas…</p></div>
+      </section>
+      <section class="alerts-group" aria-labelledby="resolvedAlertsTitle">
+        <h2 class="alerts-group-title" id="resolvedAlertsTitle">Resueltas <span class="alerts-group-count" id="resolvedAlertsCount">—</span></h2>
+        <div class="card" id="resolvedAlertItems" aria-live="polite"><p class="muted pad">Cargando alertas…</p></div>
+      </section>
     </section>
 
     <section class="view hidden" id="view-reporte">

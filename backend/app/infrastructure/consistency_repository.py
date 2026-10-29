@@ -107,10 +107,11 @@ class ConsistencyRepository:
         execution_id: int,
         captured_on: date,
         assessments: list[dict[str, Any]],
-    ) -> None:
-        """Guarda la evidencia usada para cada perfil evaluado en la última captura."""
+    ) -> list[dict[str, Any]]:
+        """Guarda evaluaciones y devuelve IDs para vincular sus alertas HU07."""
+        saved: list[dict[str, Any]] = []
         for item in assessments:
-            self._session.execute(text("""
+            evaluation_id = self._session.execute(text("""
                 INSERT INTO evaluacion_consistencia (
                     id_modelo_consistencia, id_mascota, id_snapshot, id_ejecucion,
                     fecha_evaluacion, nivel_riesgo, fuente_etiqueta, justificacion,
@@ -119,7 +120,7 @@ class ConsistencyRepository:
                     :model_id, :pet_id, :snapshot_id, :execution_id,
                     :captured_on, :risk, :label_source, :explanation,
                     CAST(:features AS JSONB)
-                )
+                ) RETURNING id_evaluacion
             """), {
                 "model_id": model_id,
                 "pet_id": item["id_mascota"],
@@ -130,7 +131,13 @@ class ConsistencyRepository:
                 "label_source": item["indicadores"]["origen"],
                 "explanation": item["justificacion"],
                 "features": json.dumps(item["indicadores"]),
+            }).scalar_one()
+            saved.append({
+                **item,
+                "id_evaluacion": int(evaluation_id),
+                "fecha_evaluacion": captured_on,
             })
+        return saved
 
     def latest_report(self) -> dict[str, Any] | None:
         model_id = self._session.execute(text("""

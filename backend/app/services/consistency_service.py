@@ -19,6 +19,7 @@ from app.domain.consistency_training import (
     review_priority,
     train_decision_tree,
 )
+from app.infrastructure.alert_repository import AlertRepository
 from app.infrastructure.consistency_repository import ConsistencyRepository
 from app.infrastructure.model_artifact_storage import ModelArtifactStorage
 
@@ -108,6 +109,8 @@ class ConsistencyService:
                 ),
                 "indicadores": {
                     **features,
+                    # Este dato se muestra en HU07, pero no se usa como entrada del árbol.
+                    "dias_sin_cambio_observado": int(sample["dias_sin_cambio_observado"]),
                     "origen": "prioridad_revision_hu04_v2",
                     "fuente_prioridad": "regla_directa_hu04_v2",
                     "prediccion_arbol": tree_prediction,
@@ -166,11 +169,14 @@ class ConsistencyService:
             )
             filename, digest = self._artifacts.save(model_id, trained.estimator)
             self._repository.set_artifact_reference(model_id, filename, digest)
-            self._repository.insert_assessments(
+            saved_assessments = self._repository.insert_assessments(
                 model_id=model_id,
                 execution_id=int(latest_run["id_ejecucion"]),
                 captured_on=_to_date(latest_run["fecha_captura"]),
                 assessments=assessments,
+            )
+            alert_summary = AlertRepository(self._session).sync_high_priority_alerts(
+                saved_assessments
             )
             self._session.commit()
         except Exception:
@@ -185,7 +191,9 @@ class ConsistencyService:
             raise ConsistencyServiceError("No se pudo recuperar el resultado de la evaluación.")
         self._attach_tree_diagram(report)
         report["history"] = self._repository.model_history()
-        return _json_safe(report)
+        payload = _json_safe(report)
+        payload["alertas_hu07"] = alert_summary
+        return payload
 
     def latest_report(self) -> dict[str, Any]:
         report = self._repository.latest_report()

@@ -42,7 +42,7 @@ La tabla refleja navegación documentada en el PDF/prototipo; los permisos de op
 | HU04 | Área de Ayuda valida consistencia | Cada perfil tiene riesgo; lista casos altos con justificación | S2 |
 | HU05 | Marketing genera reporte semanal | Se genera semanalmente, ordenado por prioridad, exportable | S3 |
 | HU06 | Marketing identifica perfiles desfavorecidos | Segmenta según edad, tamaño y condición especial | S3 |
-| HU07 | Área de Ayuda recibe alertas | Mascota, días sin cambio y riesgo; permite registrar atención | S3 |
+| HU07 | Área de Ayuda recibe alertas | Bandeja interna con mascota, días sin cambio observado y prioridad; permite registrar atención | S3 |
 | HU08 | Marketing consulta KPI | Tres KPI con meta/evolución y actualización por ejecución | S4 |
 | HU09 | Scrum Master documenta y entrega sistema | Manual técnico, manual de usuario y registro de pruebas con resultados | S4 |
 
@@ -59,7 +59,7 @@ Los sprints son de tres semanas, salvo S4 de cuatro semanas; el plan abarca sema
 | RF05 | Calcular y guardar Accuracy, Precision, Recall, F1 y versión | HU03 | Alta |
 | RF06 | Predecir probabilidad de adopción y prioridad para mascotas disponibles | HU03, HU05 | Alta |
 | RF07 | Evaluar riesgo de estado publicado obsoleto mediante árbol | HU04 | Alta |
-| RF08 | Notificar perfiles de alto riesgo al Área de Ayuda | HU07 | Media |
+| RF08 | Notificar dentro del sistema los perfiles de alta prioridad al Área de Ayuda | HU07 | Media |
 | RF09 | Producir reporte semanal ordenado, exportable a PDF o Excel | HU05 | Media |
 | RF10 | Segmentar perfiles desfavorecidos: edad avanzada, tamaño grande, etiquetas de condición | HU06 | Media |
 | RF11 | Mostrar KPI OE1-OE3, meta y evolución | HU08 | Media |
@@ -89,5 +89,5 @@ Para HU02 el prototipo de Dataset Histórico muestra observaciones por semana y 
 6. **OE2:** distinguir accuracy del clasificador de riesgo y exactitud observada del catálogo. Definir fuente de “estado real” y matriz de evaluación.
 7. **Probabilidad/prioridad (HU03):** la interfaz usa el término “Probabilidad estimada de adopción”, pero metodológicamente se calcula con la clase `salio_catalogo` derivada en HU02. Es un indicador indirecto, no una adopción confirmada; se informa sin calibración. Menor probabilidad estimada recibe prioridad de difusión más alta. Los cortes de prioridad se configuran por entorno.
 8. **Condiciones y edades:** acordar etiquetas canónicas, umbral de “edad avanzada” y manejo de edades estimadas. No inferir umbrales del contenido ilustrativo del prototipo.
-9. **Notificación y atención:** el CU07 habla de envío/reintentos pero no especifica canal; HU07 requiere registrar atención. Determinar canal, deduplicación y estados de resolución.
+9. **Notificación y atención (decisión HU07):** se implementa como bandeja interna y contador, sin correo externo porque no hay canal definido. Las alertas altas se deduplican mientras estén abiertas; Área de Ayuda registra los cambios de estado con nota y fecha.
 10. **PII:** adoptante, email y teléfono aparecen en el diccionario pero los RF/modelos no los necesitan. No recolectar ni persistirlos hasta justificar finalidad, acceso y retención.

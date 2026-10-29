@@ -120,3 +120,29 @@ def verify_hu04_schema() -> None:
         raise RuntimeError(
             "Falta ejecutar backend/upgrade_hu04_consistency.sql para habilitar HU04."
         )
+
+
+def verify_hu07_schema() -> None:
+    """Comprueba que la base configurada use la instalación limpia con auditoría HU07."""
+    required = {
+        ("alerta_desactualizacion", "id_evaluacion_origen"),
+        ("alerta_desactualizacion", "id_evaluacion_ultima"),
+        ("alerta_desactualizacion", "fecha_ultima_deteccion"),
+        ("alerta_atencion", "id_alerta"),
+        ("alerta_atencion", "id_usuario"),
+        ("alerta_atencion", "estado_anterior"),
+        ("alerta_atencion", "estado_nuevo"),
+        ("alerta_atencion", "nota"),
+    }
+    with engine.connect() as connection:
+        rows = connection.execute(text("""
+            SELECT table_name, column_name
+            FROM information_schema.columns
+            WHERE table_schema = current_schema()
+        """)).all()
+    available = {(row[0], row[1]) for row in rows}
+    if not required.issubset(available):
+        raise RuntimeError(
+            "La base conectada no incluye HU07. Crea una base nueva y vacía y ejecuta "
+            "backend/schema_wuf_predict_v5.sql; no apliques ese instalador sobre una base existente."
+        )

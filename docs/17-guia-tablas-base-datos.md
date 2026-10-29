@@ -2,7 +2,7 @@
 
 ## Alcance
 
-Esta guía describe las **18 tablas** del esquema que se instala en `wuf_predict_v6` con [`../backend/schema_wuf_predict_v4.sql`](../backend/schema_wuf_predict_v4.sql). El nombre del archivo conserva la versión del esquema; la base vigente del proyecto se llama `wuf_predict_v6`.
+Esta guía describe las **19 tablas** del instalador limpio [`../backend/schema_wuf_predict_v5.sql`](../backend/schema_wuf_predict_v5.sql), que integra HU01–HU07 para PostgreSQL 16. La base anterior `wuf_predict_v6`, instalada con el esquema v4, no contiene la auditoría de HU07. Para ejecutar esta versión, crea una base nueva y vacía (por ejemplo, `wuf_predict_v7`) y ejecuta solo el esquema v5. El nombre v5 identifica el diseño SQL, no el nombre de la base.
 
 Una **PK** identifica una fila. Una **FK** conecta una fila con otra tabla y protege esa relación. Por ejemplo, un snapshot guarda el ID de la mascota y de la ejecución que lo produjo.
 
@@ -55,9 +55,10 @@ El catálogo y el reporte consultan las predicciones del modelo vigente ligadas 
 |---|---|---|
 | `modelo_consistencia` | Versiona el árbol de decisión de HU04, su ejecución de referencia, métricas, variables, reglas, parámetros y artefacto. | Puede registrar el `usuario` que lo entrenó y apunta a `ejecucion_recoleccion`; tiene muchas evaluaciones. |
 | `evaluacion_consistencia` | Guarda la prioridad de revisión por mascota en una captura, más la justificación e indicadores. | Conecta `modelo_consistencia`, `mascota`, `snapshot_catalogo` y `ejecucion_recoleccion`. |
-| `alerta_desactualizacion` | Reserva persistencia para notificaciones de perfiles que requieren atención, prevista para HU07. | Apunta a una `mascota`. Actualmente HU04 guarda sus resultados en `evaluacion_consistencia`; no los inserta en esta tabla como alertas atendidas. |
+| `alerta_desactualizacion` | Mantiene una alerta interna cuando HU04 asigna prioridad alta. Registra creación, última detección, mensaje y estado actual; enlaza la primera evaluación y la evaluación más reciente que la volvió a detectar. | Apunta a `mascota` y a `evaluacion_consistencia`. Solo puede haber una alerta abierta por mascota; al resolverse puede comenzar un episodio nuevo en una evaluación posterior. |
+| `alerta_atencion` | Guarda cada acción del Área de Ayuda: estado anterior/nuevo, usuario, fecha y nota. | Pertenece a `alerta_desactualizacion` y a `usuario`; conserva el historial aunque la alerta avance de pendiente a revisión y luego a resuelta. |
 
-La prioridad de revisión que muestra HU04 se calcula con una regla directa y provisional. El árbol de decisión aprende a aproximarla; sus métricas no prueban que el estado real del catálogo sea correcto o incorrecto.
+La prioridad de revisión que muestra HU04 se calcula con una regla directa y provisional. El árbol de decisión aprende a aproximarla; sus métricas no prueban que el estado real del catálogo sea correcto o incorrecto. HU07 crea una alerta interna únicamente para prioridad alta. La alerta sigue siendo una solicitud de verificación humana, no una confirmación de estado obsoleto. Los días sin cambio se derivan de la secuencia observada de capturas y se conservan en los indicadores JSON de la evaluación; no representan una verificación directa en WUF.
 
 ## Relaciones principales de un vistazo
 
@@ -91,6 +92,10 @@ erDiagram
     MASCOTA ||--o{ EVALUACION_CONSISTENCIA : se_evalua
     SNAPSHOT_CATALOGO ||--o{ EVALUACION_CONSISTENCIA : evidencia
     EJECUCION_RECOLECCION ||--o{ EVALUACION_CONSISTENCIA : corresponde
+    EVALUACION_CONSISTENCIA ||--o{ ALERTA_DESACTUALIZACION : origina
+    EVALUACION_CONSISTENCIA ||--o{ ALERTA_DESACTUALIZACION : actualiza
+    ALERTA_DESACTUALIZACION ||--o{ ALERTA_ATENCION : registra
+    USUARIO ||--o{ ALERTA_ATENCION : atiende
 ```
 
 Las tablas de unión —`dataset_snapshot` y `dataset_ejecucion`— resuelven relaciones muchos-a-muchos. `dataset_detalle` es distinta: guarda el resultado etiquetado de comparar la evidencia del dataset para cada mascota.
@@ -102,8 +107,8 @@ Las tablas de unión —`dataset_snapshot` y `dataset_ejecucion`— resuelven re
 3. **HU03:** `modelo_predictivo` registra el Random Forest; `prediccion` guarda sus probabilidades para mascotas disponibles.
 4. **HU04:** `modelo_consistencia` registra una versión del árbol y `evaluacion_consistencia` guarda las prioridades de revisión por perfil.
 5. **HU05:** `reporte_priorizacion` registra la exportación; las copias de predicciones conservan el contenido asociado al reporte.
-6. **HU07 (previsto):** `alerta_desactualizacion` podrá registrar notificaciones y su estado de atención.
+6. **HU07:** al guardar la evaluación HU04, `alerta_desactualizacion` registra las prioridades altas. Si el caso sigue abierto, se actualiza su última evidencia; cuando ya fue resuelto y vuelve a resultar prioritario, comienza un episodio nuevo. El Área de Ayuda registra cada transición y nota en `alerta_atencion`.
 
 ## Qué no significa la presencia de una tabla
 
-El esquema incluye `adoptante`, `adopcion` y `alerta_desactualizacion` por el modelo de dominio y los módulos posteriores. Su existencia no significa que los CSV actuales tengan datos de adopción real ni que HU04 ya genere alertas de HU07. Para interpretar el estado implementado de cada módulo, consulta [`04-modulos-hu.md`](04-modulos-hu.md).
+El esquema incluye `adoptante` y `adopcion` por el modelo de dominio; los CSV actuales no aportan adopciones reales. Las alertas de HU07 se generan a partir de prioridades demo de HU04 y requieren confirmación humana. El instalador v5 crea la tabla de auditoría necesaria y no debe ejecutarse sobre la base v6 existente.

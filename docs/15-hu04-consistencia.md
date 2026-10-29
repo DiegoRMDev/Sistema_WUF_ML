@@ -48,18 +48,18 @@ Las opciones de profundidad (1–4) controlan cuántas divisiones puede aprender
 
 Una comprobación en memoria con las capturas actuales, usando solo las dos variables predictoras y profundidad 3, reprodujo las 68 filas de prueba (Accuracy y F1 macro 100 %; matriz diagonal 3/54/11) y las prioridades actuales (57 altas, 9 medias, 20 bajas). Sin embargo, con combinaciones no representadas en esos CSV, el árbol no siempre reproduce la regla: con 40 días y 2 capturas disponibles predijo bajo (la regla indica medio); con 180 días y 3 capturas disponibles predijo medio (la regla indica alto). Por ello, el árbol no decide la prioridad operativa: el servicio aplica directamente la regla versionada en cualquier combinación y persiste por separado la predicción del árbol para comparar. La partición por SKU sigue midiendo cuánto reproduce el árbol la regla en los datos disponibles, pero no valida generalización ni detección real.
 
-La pantalla **Perfiles para revisión** usa exclusivamente la prioridad calculada por la regla v2. El resultado del árbol se guarda en `indicadores.prediccion_arbol`; `indicadores.coincide_arbol_regla` registra si coincide con la prioridad de regla. Los metadatos de cada modelo incluyen coincidencias y diferencias del árbol frente a la regla para los perfiles disponibles de la captura evaluada. La importancia Gini y las reglas del diagrama describen el árbol, no alteran las prioridades que ve el usuario.
+La pantalla de evaluación HU04 muestra la prioridad calculada por la regla v2. El resultado del árbol se guarda en `indicadores.prediccion_arbol`; `indicadores.coincide_arbol_regla` registra si coincide con la prioridad de regla. Los metadatos de cada modelo incluyen coincidencias y diferencias del árbol frente a la regla para los perfiles disponibles de la captura evaluada. La importancia Gini y las reglas del diagrama describen el árbol, no alteran las prioridades que ve el usuario.
 
 El servicio aplica la regla a los perfiles disponibles de la captura completa más reciente y persiste la prioridad y su justificación por perfil. También guarda la predicción y el camino explicativo del árbol como evidencia comparativa. El artefacto se guarda con `joblib` en `MODEL_ARTIFACT_DIR/consistency`, separado de los modelos HU03, y se registra su hash SHA-256.
 
 ## Interfaz, permisos y persistencia
 
 - La sección **Entrenamiento** conserva el Random Forest HU03 y añade la tarjeta del árbol HU04, sus métricas, matriz, contribución de variables, reglas y versiones. La navegación y el cambio de sección restringen Entrenamiento al rol Analista, y la API vuelve a comprobar el permiso en `POST /api/v1/consistency/train`; **solo Analista puede crear versiones**.
-- **Perfiles para revisión** muestra las prioridades de la última captura, con búsqueda, filtro por nivel, SKU/nombre e explicación. Analista y Área de Ayuda pueden consultar las evaluaciones vigentes e históricas mediante la API; Marketing no tiene acceso.
-- El botón de HU04 evalúa y registra resultados; todavía no marca una alerta como atendida ni envía notificaciones. La notificación, deduplicación y atención corresponden al flujo HU07.
+- HU04 conserva métricas, diagrama, reglas y el historial de árboles en **Entrenamiento**. La consulta y atención de las alertas altas ya corresponde a la bandeja HU07.
+- Al guardar la evaluación, HU07 genera o actualiza alertas internas de prioridad alta a partir de la regla operativa; no usa la predicción del árbol como único criterio para notificar. Las alertas se explican como solicitudes de revisión, no como fallos confirmados.
 - `modelo_consistencia` conserva versiones, parámetros y métricas; `evaluacion_consistencia` relaciona árbol, mascota, snapshot y ejecución, junto con los indicadores y la justificación.
-- Este ajuste de salida no requiere migración: `evaluacion_consistencia.indicadores` y los metadatos del modelo son JSONB y aceptan la fuente de prioridad, la predicción del árbol y su comparación. El esquema limpio v4 solo acepta la regla actual `prioridad_revision_hu04_v2`.
-- `alerta_desactualizacion` del diccionario inicial se reserva para la gestión de alertas posterior. Las evaluaciones HU04 no se confunden con confirmaciones ni con atenciones de HU07.
+- `evaluacion_consistencia.indicadores` conserva en JSONB las variables, `dias_sin_cambio_observado`, la predicción del árbol y la comparación con la regla. Los días se cuentan desde el inicio de la secuencia disponible observada en los CSV; no prueban el historial real de WUF.
+- El esquema limpio v5 mantiene la regla actual `prioridad_revision_hu04_v2`, enlaza alertas con las evaluaciones y guarda acciones humanas en `alerta_atencion`. Consulta [`04-modulos-hu.md`](04-modulos-hu.md) para el ciclo HU07.
 
 ## API
 
@@ -71,9 +71,9 @@ El servicio aplica la regla a los perfiles disponibles de la captura completa m�
 
 ## Instalación de la extensión
 
-Para la base nueva y vacía `wuf_predict_v6`, ejecuta desde pgAdmin **solo** `backend/schema_wuf_predict_v4.sql`. El nombre v4 del archivo identifica la versión del esquema, mientras que la base creada se llama `wuf_predict_v6`. El instalador ya contiene HU01–HU04 y admite únicamente la regla actual v2; no ejecutes los upgrades después.
+Para HU07 crea una base nueva y vacía `wuf_predict_v7`, y ejecuta desde pgAdmin **solo** `backend/schema_wuf_predict_v5.sql`. Este instalador integra HU01–HU07; no lo ejecutes sobre la base v6 ni apliques upgrades a la instalación nueva.
 
-Los scripts `upgrade_hu04_consistency.sql` y `upgrade_hu04_revision_priority_v2.sql` se conservan únicamente para actualizar bases existentes y mantienen compatibilidad con registros v1/v2. No son necesarios para la base limpia que usarás.
+Los scripts `upgrade_hu04_*.sql` se conservan para bases históricas que necesiten esos cambios; no se aplican a la instalación limpia v5.
 
 Los parámetros opcionales son:
 
@@ -88,10 +88,10 @@ CONSISTENCY_MEDIUM_MIN_AGE_DAYS=60
 CONSISTENCY_MAX_CAPTURE_GAP_DAYS=14
 ```
 
-Con al menos tres capturas completas, ingresa como Analista a **Entrenamiento**, selecciona profundidad y porcentaje de prueba, y pulsa **Entrenar árbol y evaluar catálogo**. El resultado aparecerá en **Perfiles para revisión** para Analista y Área de Ayuda. Cada entrenamiento crea una versión nueva y pasa a ser vigente; las versiones anteriores se conservan para consulta.
+Con al menos tres capturas completas, ingresa como Analista a **Entrenamiento**, selecciona profundidad y porcentaje de prueba, y pulsa **Entrenar árbol y evaluar catálogo**. La evaluación queda en HU04 y las prioridades altas se generan/actualizan en **Alertas de desactualización**. Cada entrenamiento crea una versión nueva; las anteriores se conservan para consulta.
 
-Si una base existente ya tiene HU04 instalada y contiene evaluaciones v1, `backend/upgrade_hu04_revision_priority_v2.sql` amplía la restricción para permitir guardar v2 sin invalidar esas evaluaciones antiguas. No se aplica a `wuf_predict_v6`, creada con `schema_wuf_predict_v4.sql`.
+La base anterior `wuf_predict_v6` usa esquema v4 y no tiene las tablas de atención HU07; el código nuevo requiere que `DATABASE_URL` apunte a `wuf_predict_v7` con esquema v5.
 
 ## Pendiente para validar con datos reales
 
-El Área de Ayuda debe registrar la verificación independiente de una muestra de perfiles, por ejemplo estado correcto/obsoleto y fecha de revisión. Con esas etiquetas se podrá reemplazar `prioridad_revision_hu04_v2`, medir falsos positivos y falsos negativos y revisar los umbrales antes de interpretar HU04 como detección real. Hasta entonces, el resultado es una prioridad de revisión de demostración, no una afirmación sobre el estado real de una mascota. La creación y atención de alertas corresponde a HU07; HU04 todavía no envía notificaciones, no deduplica ni permite marcar casos como atendidos.
+El Área de Ayuda debe registrar la verificación independiente de una muestra de perfiles, por ejemplo estado correcto/obsoleto y fecha de revisión. Con esas etiquetas se podrá reemplazar `prioridad_revision_hu04_v2`, medir falsos positivos y falsos negativos y revisar los umbrales antes de interpretar HU04 como detección real. Hasta entonces, el resultado es una prioridad de revisión de demostración, no una afirmación sobre el estado real de una mascota. HU07 atiende alertas internas generadas por prioridades altas; todavía no hay notificación externa.

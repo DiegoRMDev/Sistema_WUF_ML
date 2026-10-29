@@ -113,3 +113,20 @@ class ConsistencyTrainingRequest(BaseModel):
         if value not in {0.2, 0.25, 0.3}:
             raise ValueError("El porcentaje de prueba debe ser 20 %, 25 % o 30 %.")
         return value
+
+
+class AlertAttentionRequest(BaseModel):
+    """Cambio de estado solicitado por Área de Ayuda con nota de revisión."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    estado_nuevo: Literal["en_revision", "resuelta"]
+    nota: str = Field(min_length=1, max_length=500)
+
+    @field_validator("nota")
+    @classmethod
+    def validate_note(cls, value: str) -> str:
+        cleaned = value.strip()
+        if not cleaned:
+            raise ValueError("La nota de atención no puede estar vacía.")
+        return cleaned
