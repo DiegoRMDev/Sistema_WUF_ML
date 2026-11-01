@@ -115,13 +115,16 @@ La guía detallada del flujo, la vista, la persistencia, los endpoints y las lim
 
 ## HU08 - Dashboard (S4, media)
 
-- Consultas agregadas sobre ejecuciones/reportes/adopciones verificadas; filtro temporal y estado “sin datos”.
-- Definir fórmulas/denominadores OE1-OE3 con negocio; mostrar meta, valor, tendencia, periodo de cálculo y timestamp.
-- Misma API para tres roles; respuesta paginada cuando lista actividad.
+- Resume la última captura completada en tres tarjetas con valores breves y las metas OE1, OE2 y OE3; presenta el detalle del catálogo, actividad reciente y evolución de capturas.
+- El backend consulta las tablas existentes y aplica límites configurables para el historial de capturas y actividad. No requiere nuevas tablas ni otra ejecución de modelos.
+- La tarjeta OE1 cuenta perfiles disponibles con prioridad alta del Random Forest y muestra la meta de aumento de priorización (+25 %).
+- La tarjeta OE2 cuenta alertas abiertas de riesgo alto como perfiles para revisar; presenta por separado la meta de exactitud del catálogo (98 %). No convierte alertas ni métricas del árbol en una medición de exactitud real.
+- La tarjeta OE3 cuenta perfiles que cumplen criterios desfavorecidos y, cuando hay asignaciones K-Means en esa captura, muestra cobertura y cantidad de segmentos (meta operativa de cobertura: 100 % por captura).
+- Los datos del Dashboard se sirven mediante una ruta autenticada común para Analista, Marketing y Área de Ayuda. Los valores y metas no están escritos como resultados fijos en el HTML.
 
-**Contexto acordado para el dashboard simulado:** WUF Predict usa datos de prueba para representar el negocio, por lo que HU08 debe identificar como simulados los resultados basados en CSV demo o etiquetas proxy. OE1–OE3, sus fórmulas candidatas, limitaciones actuales y pendientes se detallan en [`18-enfoque-hu08-indicadores.md`](18-enfoque-hu08-indicadores.md). En particular, la evaluación actual de HU04 reproduce una regla de prioridad y no mide directamente la exactitud estratégica de OE2.
+**Contexto del dashboard simulado:** WUF Predict usa CSV de demostración y etiquetas proxy. La vista mantiene las tarjetas breves como en el prototipo; las limitaciones metodológicas y el significado de cada indicador quedan explicados en [`18-enfoque-hu08-indicadores.md`](18-enfoque-hu08-indicadores.md). La evaluación de HU04 reproduce una regla de prioridad y no mide directamente la exactitud estratégica de OE2.
 
-**Aceptación base:** cada KPI enlaza definición y fuente; se recalcula tras ejecuciones relevantes; nunca usar números de muestra del HTML como métricas reales.
+**Aceptación cubierta:** cada tarjeta se alimenta desde datos guardados; las metas se configuran en el entorno; la pantalla incluye estado vacío, actividad reciente y evolución histórica. OE2 conserva la meta como referencia hasta que exista una fuente independiente para medir exactitud real. La sesión del Analista se validó contra la API; la base local no contiene cuentas Marketing ni Área de Ayuda para comprobar esos dos accesos de punta a punta.
 
 ## HU09 - Entrega documental (S4, baja)
 

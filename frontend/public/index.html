@@ -58,43 +58,51 @@
 
     <section class="view" id="view-dashboard">
       <h1>Dashboard de indicadores</h1>
-      <p class="lead">Semana 8 · catálogo capturado el 28/09/2026</p>
+      <p class="lead" id="dashboardLead">Cargando los resultados de la última captura…</p>
       <div class="stats">
         <div class="stat">
-          <p class="label">OE1 · Priorización de difusión</p>
-          <div class="row"><p class="value">53</p><p class="meta">de 115 disponibles</p></div>
-          <p class="trend">Mascotas de baja probabilidad con prioridad alta · meta: +25 %</p>
+          <p class="label">Priorización de difusión</p>
+          <div class="row"><p class="value" id="dashboardOe1Value">—</p><p class="meta" id="dashboardOe1Meta">Sin datos</p></div>
+          <p class="trend" id="dashboardOe1Target">Meta: +25 %</p>
         </div>
         <div class="stat">
-          <p class="label">OE2 · Exactitud del catálogo</p>
-          <div class="row"><p class="value">85.2 %</p><p class="meta">meta: 98 %</p></div>
-          <p class="trend">17 perfiles con riesgo de desactualización pendientes</p>
+          <p class="label">Perfiles por revisar</p>
+          <div class="row"><p class="value" id="dashboardOe2Value">—</p><p class="meta">riesgo alto abierto</p></div>
+          <p class="trend" id="dashboardOe2Target">Meta de exactitud del catálogo: 98 %</p>
         </div>
         <div class="stat">
-          <p class="label">OE3 · Perfiles desfavorecidos</p>
-          <div class="row"><p class="value">88</p><p class="meta">de 115 disponibles</p></div>
-          <p class="trend">Grupos de mascotas disponibles por atributos · K-Means</p>
+          <p class="label">Perfiles desfavorecidos</p>
+          <div class="row"><p class="value" id="dashboardOe3Value">—</p><p class="meta" id="dashboardOe3Meta">Sin datos</p></div>
+          <p class="trend" id="dashboardOe3Target">Meta de cobertura: 100 %</p>
         </div>
       </div>
       <div class="two">
-        <div class="card">
-          <div class="card-head"><h2>Catálogo en la semana 8</h2></div>
-          <table>
-            <tr><td>Perfiles capturados</td><td class="num">189</td></tr>
-            <tr><td>Disponibles</td><td class="num">115</td></tr>
-            <tr><td>Salieron del catálogo (semanas seis a ocho)</td><td class="num">74</td></tr>
-            <tr><td>Prioridad alta / media / baja</td><td class="num">53 / 55 / 7</td></tr>
-            <tr><td>Alertas de riesgo alto / medio</td><td class="num">12 / 5</td></tr>
+        <div class="card pad">
+          <div class="card-head"><h2>Última captura</h2></div>
+          <p class="muted dashboard-empty" id="dashboardCatalogEmpty" hidden>Todavía no hay capturas completadas.</p>
+          <table id="dashboardCatalogTable">
+            <tbody>
+              <tr><td>Perfiles capturados</td><td class="num" id="dashboardCatalogTotal">—</td></tr>
+              <tr><td>Disponibles</td><td class="num" id="dashboardCatalogAvailable">—</td></tr>
+              <tr><td>No disponibles</td><td class="num" id="dashboardCatalogUnavailable">—</td></tr>
+              <tr><td>Sin publicar</td><td class="num" id="dashboardCatalogUnpublished">—</td></tr>
+              <tr><td>Prioridad alta / media / baja</td><td class="num" id="dashboardCatalogPriorities">—</td></tr>
+            </tbody>
           </table>
         </div>
-        <div class="card">
+        <div class="card pad">
           <div class="card-head"><h2>Actividad reciente</h2></div>
+          <div class="tablewrap dashboard-activity-wrap">
+            <table><tbody id="dashboardActivityRows"><tr><td class="muted">Cargando actividad…</td></tr></tbody></table>
+          </div>
+        </div>
+      </div>
+      <div class="card dashboard-evolution-card">
+        <div class="card-head"><h2>Evolución por captura</h2><span class="muted">Últimas capturas completadas</span></div>
+        <div class="tablewrap dashboard-evolution-wrap">
           <table>
-            <tr><td>Captura semanal del catálogo completada</td><td class="muted num">28/09/2026</td></tr>
-            <tr><td>Reporte de priorización de la semana 8 generado</td><td class="muted num">28/09/2026</td></tr>
-            <tr><td>Modelo v1 publicado (Accuracy 84.2 %)</td><td class="muted num">28/09/2026</td></tr>
-            <tr><td>17 alertas de desactualización emitidas</td><td class="muted num">28/09/2026</td></tr>
-            <tr><td>Dataset histórico v1 exportado (189 registros)</td><td class="muted num">28/09/2026</td></tr>
+            <thead><tr><th>Captura</th><th>Perfiles</th><th>Disponibles</th><th>Prioridad alta</th><th>Riesgo alto</th><th>Perfiles desfavorecidos</th><th>Segmentos</th></tr></thead>
+            <tbody id="dashboardEvolutionRows"><tr><td colspan="7" class="muted">Cargando capturas…</td></tr></tbody>
           </table>
         </div>
       </div>

@@ -16,7 +16,8 @@ Este directorio convierte el avance académico y el prototipo navegable en una g
 10. [HU04 — Consistencia del catálogo](15-hu04-consistencia.md): DecisionTreeClassifier, etiquetas demo, métricas, diagrama del árbol, permisos y persistencia.
 11. [HU05 — Reporte semanal de priorización](16-hu05-reporte-priorizacion.md): flujo de datos, prioridades, vista, filtros, exportación, historial, permisos y límites actuales.
 12. [Guía de las tablas de la base de datos](17-guia-tablas-base-datos.md): explicación sencilla de las 22 tablas del esquema v6 y de sus relaciones.
-13. [HU08 — Enfoque de indicadores estratégicos](18-enfoque-hu08-indicadores.md): alcance de simulación, relación de OE1–OE3 con los módulos, fórmulas candidatas y pendientes antes del dashboard.
+13. [HU08 — Enfoque de indicadores estratégicos](18-enfoque-hu08-indicadores.md): alcance de la simulación, relación de OE1–OE3 con los módulos y lectura de sus límites.
+14. [HU08 — Implementación del Dashboard](19-hu08-dashboard.md): tarjetas, metas, datos fuente, evolución, actividad y validación realizada.
 
 ## Convenciones
 

@@ -73,10 +73,25 @@ La versión K-Means usa `modelo_segmentacion`, `asignacion_segmento` y `reporte_
 
 El Analista puede entrenar, activar y actualizar K-Means; Analista y Marketing consultan/exportan el reporte. La autorización se comprueba también en el backend.
 
-## Límites y pendientes de HU08
+## Dashboard HU08 implementado
+
+La vista resume datos de las tablas existentes; no modifica capturas, predicciones ni modelos y no necesita tablas nuevas. `GET /api/v1/dashboard/summary` requiere una sesión iniciada y acepta los tres roles. El servicio reúne la última captura completada, resultados vinculados a cada captura, actividad reciente y hasta seis capturas históricas. La cantidad de filas se configura con `DASHBOARD_HISTORY_CAPTURE_LIMIT` y `DASHBOARD_ACTIVITY_LIMIT`.
+
+La pantalla presenta:
+
+- **OE1:** número de mascotas disponibles con prioridad alta de la predicción Random Forest y total disponible. La meta se muestra como aumento de priorización de **+25 %**; el conteo no demuestra que el aumento se haya alcanzado.
+- **OE2:** número de alertas abiertas de riesgo alto, rotulado como perfiles para revisar. La meta de exactitud **98 %** aparece separada; no se presenta como un porcentaje medido porque falta una fuente independiente de estado real.
+- **OE3:** perfiles disponibles con uno o más criterios desfavorecidos. Si existen asignaciones K-Means para esa captura, también muestra cantidad de segmentos y la proporción de perfiles elegibles que quedaron asignados. La meta operativa adoptada es cobertura de **100 % por captura**; no significa aumento real de adopciones.
+- **Última captura:** total de perfiles, estados y distribución de prioridades cuando hay predicciones.
+- **Evolución por captura:** valores guardados para cada captura; una celda queda como “—” si todavía no existe un resultado de ese módulo para esa fecha.
+- **Actividad reciente:** importaciones, datasets, entrenamientos, exportaciones y atención de alertas, con fecha y detalle breve.
+
+Las metas se leen de la configuración `DASHBOARD_OE1_TARGET_INCREASE_PERCENT`, `DASHBOARD_OE2_TARGET_ACCURACY_PERCENT` y `DASHBOARD_OE3_TARGET_COVERAGE_PERCENT`; sus valores de ejemplo son 25, 98 y 100. En la interfaz no se usan los números ilustrativos del prototipo como resultados.
+
+## Límites
 
 - Los CSV son sintéticos; OE3 describe estos datos, no a toda la población de WUF.
 - La proporción desfavorecida por segmento no es una tasa ni incremento de adopción.
 - La Silhouette depende de la captura, K y distribución; no mide el éxito de campañas.
-- Antes de construir el dashboard, definir periodo, fórmulas, metas, evolución y denominadores de OE1/OE2. Para OE3 mostrar conteos/composición por captura y versión, sin asumir que un segmento conserva identidad entre versiones.
+- Las comparaciones del histórico son por captura. Los identificadores de segmentos son nominales y no deben interpretarse como categorías equivalentes entre entrenamientos.
 - Medir un cambio real en adopciones requiere resultados confirmados y observaciones de campañas, fuera de los datos actuales.

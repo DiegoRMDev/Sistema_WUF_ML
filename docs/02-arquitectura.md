@@ -45,7 +45,7 @@ El navegador es cliente sin secretos ni lógica autoritativa. La API valida la s
 | Predicciones de catálogo | `GET /api/v1/models/predictions` | Tres roles autenticados |
 | Alertas | `GET /api/v1/alerts`, `PATCH /api/v1/alerts/{id}` | Analista/Ayuda según acción |
 | Reportes | `POST /api/v1/reports`, `GET /api/v1/reports`, `GET /api/v1/reports/{id}/file` | Analista/Marketing |
-| Indicadores | `GET /api/v1/indicators?from=&to=` | Tres roles |
+| Dashboard | `GET /api/v1/dashboard/summary` | Tres roles autenticados |
 | Configuración | `GET/PATCH /api/v1/settings` | Lectura autenticada; escritura Analista |
 
 Respuestas de error estables, paginación y filtros tipados deben ser comunes. No devolver rutas locales de artefactos ni trazas internas.

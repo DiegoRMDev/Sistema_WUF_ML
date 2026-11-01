@@ -37,6 +37,12 @@ class Settings(BaseSettings):
     # Semilla y reinicios de K-Means para poder repetir el análisis OE3.
     segmentation_random_seed: int = 42
     segmentation_n_init: int = 20
+    # Metas y tamaño de historial que presenta HU08; pueden cambiarse desde backend/.env.
+    dashboard_oe1_target_increase_percent: float = 25.0
+    dashboard_oe2_target_accuracy_percent: float = 98.0
+    dashboard_oe3_target_coverage_percent: float = 100.0
+    dashboard_history_capture_limit: int = 6
+    dashboard_activity_limit: int = 8
     cors_origins: str = "http://localhost:5500,http://127.0.0.1:5500"
 
     model_config = SettingsConfigDict(
@@ -150,6 +156,31 @@ class Settings(BaseSettings):
     def validate_segmentation_n_init(cls, value: int) -> int:
         if not 1 <= value <= 100:
             raise ValueError("SEGMENTATION_N_INIT debe estar entre 1 y 100.")
+        return value
+
+    @field_validator(
+        "dashboard_oe1_target_increase_percent",
+        "dashboard_oe2_target_accuracy_percent",
+        "dashboard_oe3_target_coverage_percent",
+    )
+    @classmethod
+    def validate_dashboard_targets(cls, value: float) -> float:
+        if not 0 <= value <= 100:
+            raise ValueError("Las metas del Dashboard deben estar entre 0 y 100.")
+        return value
+
+    @field_validator("dashboard_history_capture_limit")
+    @classmethod
+    def validate_dashboard_history_limit(cls, value: int) -> int:
+        if not 3 <= value <= 20:
+            raise ValueError("DASHBOARD_HISTORY_CAPTURE_LIMIT debe estar entre 3 y 20.")
+        return value
+
+    @field_validator("dashboard_activity_limit")
+    @classmethod
+    def validate_dashboard_activity_limit(cls, value: int) -> int:
+        if not 1 <= value <= 20:
+            raise ValueError("DASHBOARD_ACTIVITY_LIMIT debe estar entre 1 y 20.")
         return value
 
     @field_validator("consistency_max_depth")

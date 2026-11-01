@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
-from app.api.v1 import alerts, auth, collection, consistency, datasets, models, reports, segmentation
+from app.api.v1 import alerts, auth, collection, consistency, dashboard, datasets, models, reports, segmentation
 from app.core.config import get_settings
 from app.infrastructure.database import (
     verify_hu01_schema,
@@ -89,6 +89,7 @@ app.include_router(collection.router, prefix="/api/v1")
 app.include_router(datasets.router, prefix="/api/v1")
 app.include_router(models.router, prefix="/api/v1")
 app.include_router(consistency.router, prefix="/api/v1")
+app.include_router(dashboard.router, prefix="/api/v1")
 app.include_router(alerts.router, prefix="/api/v1")
 app.include_router(reports.router, prefix="/api/v1")
 app.include_router(segmentation.router, prefix="/api/v1")
