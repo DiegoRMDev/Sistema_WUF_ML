@@ -2,7 +2,7 @@
 
 ## Alcance
 
-Esta guía describe las **19 tablas** del instalador limpio [`../backend/schema_wuf_predict_v5.sql`](../backend/schema_wuf_predict_v5.sql), que integra HU01–HU07 para PostgreSQL 16. La base anterior `wuf_predict_v6`, instalada con el esquema v4, no contiene la auditoría de HU07. Para ejecutar esta versión, crea una base nueva y vacía (por ejemplo, `wuf_predict_v7`) y ejecuta solo el esquema v5. El nombre v5 identifica el diseño SQL, no el nombre de la base.
+Esta guía describe las **22 tablas** del instalador limpio [`../backend/schema_wuf_predict_v6.sql`](../backend/schema_wuf_predict_v6.sql), que integra HU01–HU07 y el agrupamiento K-Means de OE3 para PostgreSQL 16. La versión anterior de la aplicación usa `wuf_predict_v7`; para el código actual crea una base vacía `wuf_predict_v8` y ejecuta solo el esquema v6. El nombre v6 identifica el diseño SQL, no el nombre de la base.
 
 Una **PK** identifica una fila. Una **FK** conecta una fila con otra tabla y protege esa relación. Por ejemplo, un snapshot guarda el ID de la mascota y de la ejecución que lo produjo.
 
@@ -47,6 +47,18 @@ Una **PK** identifica una fila. Una **FK** conecta una fila con otra tabla y pro
 | `prediccion` | Guarda probabilidad estimada, prioridad, fecha, mascota, modelo y ejecución evaluada. | Apunta a `modelo_predictivo`, `mascota` y opcionalmente a `ejecucion_recoleccion` y `reporte_priorizacion`. Una predicción normal tiene `id_reporte` vacío; al exportar, se copia y queda asociada a un reporte. |
 | `reporte_priorizacion` | Registra cada exportación de HU05: usuario, semana ISO, fecha y formato PDF o Excel. | Pertenece a un `usuario`; sus filas históricas se relacionan mediante las copias de `prediccion` con `id_reporte`. |
 
+En el esquema v6, `reporte_priorizacion` también apunta a la ejecución y al modelo K-Means incluidos en esa exportación. Así se mantiene clara la procedencia de los dos objetivos.
+
+### Segmentación de perfiles — OE3 / HU06
+
+| Tabla | ¿Para qué sirve? | Relaciones principales |
+|---|---|---|
+| `modelo_segmentacion` | Versiona un modelo K-Means, su K, captura de referencia, Silhouette, inertia, variables/parámetros, resumen de grupos y hash del artefacto. | Apunta a `ejecucion_recoleccion` y `usuario`; tiene muchas asignaciones de perfil. Solo una versión puede ser vigente. |
+| `asignacion_segmento` | Guarda el número de grupo asignado por un modelo a un `snapshot_catalogo` y los criterios HU06 que calificaban al perfil. | Cada asignación pertenece a un `modelo_segmentacion` y snapshot; la combinación modelo/snapshot es única. |
+| `reporte_segmento_detalle` | Enlaza un reporte con las asignaciones OE3 exactas que incluyó. | Une `reporte_priorizacion` y `asignacion_segmento` para poder recuperar exportaciones históricas. |
+
+K-Means trabaja sobre los disponibles elegibles por los criterios HU06. No usa especie, identificadores, etiquetas de adopción ni predicciones OE1. Los grupos no son probabilidades ni clases con orden.
+
 El catálogo y el reporte consultan las predicciones del modelo vigente ligadas a la última captura completa. El historial de informes recupera las filas guardadas para regenerar una descarga anterior.
 
 ### Revisión de consistencia y alertas — HU04 y HU07
@@ -86,6 +98,12 @@ erDiagram
     MASCOTA ||--o{ PREDICCION : recibe
     EJECUCION_RECOLECCION o|--o{ PREDICCION : evalua
     REPORTE_PRIORIZACION o|--o{ PREDICCION : archiva
+    EJECUCION_RECOLECCION ||--o{ MODELO_SEGMENTACION : referencia
+    USUARIO ||--o{ MODELO_SEGMENTACION : entrena
+    MODELO_SEGMENTACION ||--o{ ASIGNACION_SEGMENTO : asigna
+    SNAPSHOT_CATALOGO ||--o{ ASIGNACION_SEGMENTO : recibe
+    REPORTE_PRIORIZACION o|--o{ REPORTE_SEGMENTO_DETALLE : archiva
+    ASIGNACION_SEGMENTO ||--o{ REPORTE_SEGMENTO_DETALLE : conserva
     MASCOTA ||--o{ ALERTA_DESACTUALIZACION : puede_tener
     EJECUCION_RECOLECCION ||--o{ MODELO_CONSISTENCIA : referencia
     MODELO_CONSISTENCIA ||--o{ EVALUACION_CONSISTENCIA : genera
@@ -107,8 +125,9 @@ Las tablas de unión —`dataset_snapshot` y `dataset_ejecucion`— resuelven re
 3. **HU03:** `modelo_predictivo` registra el Random Forest; `prediccion` guarda sus probabilidades para mascotas disponibles.
 4. **HU04:** `modelo_consistencia` registra una versión del árbol y `evaluacion_consistencia` guarda las prioridades de revisión por perfil.
 5. **HU05:** `reporte_priorizacion` registra la exportación; las copias de predicciones conservan el contenido asociado al reporte.
-6. **HU07:** al guardar la evaluación HU04, `alerta_desactualizacion` registra las prioridades altas. Si el caso sigue abierto, se actualiza su última evidencia; cuando ya fue resuelto y vuelve a resultar prioritario, comienza un episodio nuevo. El Área de Ayuda registra cada transición y nota en `alerta_atencion`.
+6. **HU06/OE3:** `modelo_segmentacion` registra K-Means y `asignacion_segmento` enlaza cada grupo con el snapshot de esa captura. Al exportar, `reporte_segmento_detalle` conserva las asignaciones usadas.
+7. **HU07:** al guardar la evaluación HU04, `alerta_desactualizacion` registra las prioridades altas. Si el caso sigue abierto, se actualiza su última evidencia; cuando ya fue resuelto y vuelve a resultar prioritario, comienza un episodio nuevo. El Área de Ayuda registra cada transición y nota en `alerta_atencion`.
 
 ## Qué no significa la presencia de una tabla
 
-El esquema incluye `adoptante` y `adopcion` por el modelo de dominio; los CSV actuales no aportan adopciones reales. Las alertas de HU07 se generan a partir de prioridades demo de HU04 y requieren confirmación humana. El instalador v5 crea la tabla de auditoría necesaria y no debe ejecutarse sobre la base v6 existente.
+El esquema incluye `adoptante` y `adopcion` por el modelo de dominio; los CSV actuales no aportan adopciones reales. Las alertas de HU07 se generan a partir de prioridades demo de HU04 y requieren confirmación humana. El instalador v6 debe ejecutarse solo en `wuf_predict_v8` vacía; no se usa como migración sobre `wuf_predict_v7`.

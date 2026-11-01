@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy.orm import Session
 
-from app.domain.disadvantaged_profiles import classify_profile, summarize_profiles
+from app.domain.disadvantaged_profiles import classify_profile
 from app.infrastructure.report_exporter import export_pdf, export_xlsx
 from app.infrastructure.report_repository import ReportRepository
 
@@ -42,6 +42,17 @@ class ReportService:
                 "probabilidad_adopcion": float(row["probabilidad_adopcion"]),
                 "nivel_prioridad": priority.capitalize(),
             }))
+        oe3 = source["oe3"]
+        oe3_summaries = oe3["modelo"]["resumen_clusters"] if oe3["modelo"] else []
+        summary_by_id = {item["numero_segmento"]: item for item in oe3_summaries}
+        oe3_items = []
+        for row in oe3["items"]:
+            cluster_summary = summary_by_id.get(int(row["numero_segmento"]), {})
+            oe3_items.append({
+                **row,
+                "segmento_nombre": cluster_summary.get("nombre", f"Segmento {row['numero_segmento']}"),
+                "segmento_resumen": cluster_summary,
+            })
         return {
             "estado": "listo",
             "mensaje": None,
@@ -50,8 +61,15 @@ class ReportService:
             "modelo_version": source["modelo"]["version"],
             "total": source["total"],
             "prioridades": counts,
-            "segmentacion_desfavorecidas": summarize_profiles(items),
             "items": items,
+            "oe3": {
+                "estado": oe3["estado"],
+                "total": oe3["cantidad_elegible"],
+                "modelo_version": oe3["modelo"]["version"] if oe3["modelo"] else None,
+                "silhouette_score": float(oe3["modelo"]["silhouette_score"]) if oe3["modelo"] else None,
+                "segmentos": oe3_summaries,
+                "items": oe3_items,
+            },
         }
 
     def history(self) -> list[dict[str, Any]]:
@@ -68,7 +86,23 @@ class ReportService:
             **row,
             "nivel_prioridad": str(row["nivel_prioridad"]).capitalize(),
         }) for row in source["items"]]
-        report["segmentacion_desfavorecidas"] = summarize_profiles(report["items"])
+        oe3 = source["oe3"]
+        summaries = oe3["modelo"]["resumen_clusters"] if oe3["modelo"] else []
+        summary_by_id = {item["numero_segmento"]: item for item in summaries}
+        report["oe3"] = {
+            "modelo_version": oe3["modelo"]["version"] if oe3["modelo"] else None,
+            "silhouette_score": (
+                float(oe3["modelo"]["silhouette_score"])
+                if oe3["modelo"] and oe3["estado"] == "listo" else None
+            ),
+            "items": [{
+                **item,
+                "segmento_nombre": summary_by_id.get(int(item["numero_segmento"]), {}).get(
+                    "nombre", f"Segmento {item['numero_segmento']}"
+                ),
+                "segmento_resumen": summary_by_id.get(int(item["numero_segmento"]), {}),
+            } for item in oe3["items"]] if oe3["estado"] == "listo" else [],
+        }
         try:
             content = export_pdf(report, generated_at) if formato == "pdf" else export_xlsx(report, generated_at)
             report_id = self._repository.save_report(
@@ -78,6 +112,13 @@ class ReportService:
                 model_id=int(source["modelo"]["id_modelo"]),
                 run_id=int(source["captura"]["id_ejecucion"]),
                 items=source["items"],
+                segmentation_model_id=(
+                    int(source["oe3"]["modelo"]["id_modelo_segmentacion"])
+                    if source["oe3"]["modelo"] and source["oe3"]["estado"] == "listo" else None
+                ),
+                segmentation_assignments=(
+                    source["oe3"]["items"] if source["oe3"]["estado"] == "listo" else []
+                ),
                 generated_at=generated_at,
             )
         except Exception as exc:
@@ -99,7 +140,22 @@ class ReportService:
                 "nivel_prioridad": str(item["nivel_prioridad"]).capitalize(),
             }) for item in saved["items"]],
         }
-        report["segmentacion_desfavorecidas"] = summarize_profiles(report["items"])
+        cluster_summaries = saved.get("resumen_clusters") or []
+        summary_by_id = {item["numero_segmento"]: item for item in cluster_summaries}
+        report["oe3"] = {
+            "modelo_version": saved.get("segmentacion_version"),
+            "silhouette_score": (
+                float(saved["segmentacion_silhouette"])
+                if saved.get("segmentacion_silhouette") is not None else None
+            ),
+            "items": [{
+                **item,
+                "segmento_nombre": summary_by_id.get(int(item["numero_segmento"]), {}).get(
+                    "nombre", f"Segmento {item['numero_segmento']}"
+                ),
+                "segmento_resumen": summary_by_id.get(int(item["numero_segmento"]), {}),
+            } for item in saved.get("oe3_items", [])],
+        }
         try:
             formato = str(saved["formato"]).casefold()
             generated_at = saved["fecha_generacion"]

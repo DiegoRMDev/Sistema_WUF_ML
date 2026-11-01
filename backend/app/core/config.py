@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     consistency_medium_min_captures: int = 2
     consistency_medium_min_age_days: int = 60
     consistency_max_capture_gap_days: int = 14
+    # Semilla y reinicios de K-Means para poder repetir el análisis OE3.
+    segmentation_random_seed: int = 42
+    segmentation_n_init: int = 20
     cors_origins: str = "http://localhost:5500,http://127.0.0.1:5500"
 
     model_config = SettingsConfigDict(
@@ -133,6 +136,20 @@ class Settings(BaseSettings):
     def validate_consistency_seed(cls, value: int) -> int:
         if not 0 <= value <= 2_147_483_647:
             raise ValueError("CONSISTENCY_RANDOM_SEED está fuera del rango permitido.")
+        return value
+
+    @field_validator("segmentation_random_seed")
+    @classmethod
+    def validate_segmentation_seed(cls, value: int) -> int:
+        if not 0 <= value <= 2_147_483_647:
+            raise ValueError("SEGMENTATION_RANDOM_SEED está fuera del rango permitido.")
+        return value
+
+    @field_validator("segmentation_n_init")
+    @classmethod
+    def validate_segmentation_n_init(cls, value: int) -> int:
+        if not 1 <= value <= 100:
+            raise ValueError("SEGMENTATION_N_INIT debe estar entre 1 y 100.")
         return value
 
     @field_validator("consistency_max_depth")

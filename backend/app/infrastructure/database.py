@@ -22,7 +22,7 @@ def get_db() -> Generator[Session, None, None]:
 
 
 def verify_hu01_schema() -> None:
-    """Acepta el esquema HU01 anterior o v2 y rechaza esquemas incompletos."""
+    """Comprueba que las estructuras de recolección y dataset estén completas."""
     with engine.connect() as connection:
         rows = connection.execute(text("""
             SELECT table_name, column_name, is_nullable
@@ -51,13 +51,14 @@ def verify_hu01_schema() -> None:
         v2_schema_is_valid = ("snapshot_catalogo", "id_dataset") in columns
     if not common_schema_is_valid or not v2_schema_is_valid:
         raise RuntimeError(
-            "El esquema PostgreSQL no corresponde a HU01/HU02 v2. "
-            "Verifica que ejecutaste el SQL correspondiente a la base configurada."
+            "El esquema PostgreSQL no incluye las estructuras requeridas por HU01/HU02. "
+            "Para la instalación actual, crea una base vacía y ejecuta "
+            "backend/schema_wuf_predict_v6.sql."
         )
 
 
 def verify_hu03_schema() -> None:
-    """Falla temprano si el esquema v2/v3 todavía no incluye persistencia HU03."""
+    """Comprueba que el esquema de instalación limpia conserva la persistencia HU03."""
     required = {
         ("modelo_predictivo", "estado"),
         ("modelo_predictivo", "metadatos_entrenamiento"),
@@ -73,24 +74,25 @@ def verify_hu03_schema() -> None:
             WHERE table_schema = current_schema()
         """)).all()
     available = {(row[0], row[1]) for row in rows}
-    # La base original sigue disponible para HU01; HU03 requiere el esquema v2/v3.
+    # Los esquemas históricos previos a capturas versionadas no habilitan HU03.
     if ("ejecucion_recoleccion", "fecha_captura") not in available:
         return
     if not required.issubset(available):
         raise RuntimeError(
-            "Falta aplicar backend/upgrade_hu03_ml.sql en la base v2/v3 antes de iniciar HU03."
+            "La base conectada no incluye el esquema limpio requerido para los módulos actuales. "
+            "Crea una base vacía y ejecuta backend/schema_wuf_predict_v6.sql."
         )
 
 
 def verify_hu04_schema() -> None:
-    """Informa al iniciar si falta la persistencia requerida por HU04 en el esquema v4."""
+    """Comprueba que la instalación limpia conserve las estructuras de HU04."""
     with engine.connect() as connection:
         tables = set(connection.execute(text("""
             SELECT table_name
             FROM information_schema.tables
             WHERE table_schema = current_schema()
         """)).scalars().all())
-    # Las instalaciones antiguas se conservan para HU01; HU04 está disponible en el esquema v4.
+    # Los esquemas históricos sin capturas versionadas no habilitan la verificación de HU04.
     if "ejecucion_recoleccion" not in tables:
         return
     with engine.connect() as connection:
@@ -118,7 +120,8 @@ def verify_hu04_schema() -> None:
     }
     if not {"modelo_consistencia", "evaluacion_consistencia"}.issubset(tables) or not required.issubset(hu04_columns):
         raise RuntimeError(
-            "Falta ejecutar backend/upgrade_hu04_consistency.sql para habilitar HU04."
+            "La base conectada no incluye la persistencia de HU04. Crea una base vacía y ejecuta "
+            "backend/schema_wuf_predict_v6.sql."
         )
 
 
@@ -144,5 +147,34 @@ def verify_hu07_schema() -> None:
     if not required.issubset(available):
         raise RuntimeError(
             "La base conectada no incluye HU07. Crea una base nueva y vacía y ejecuta "
-            "backend/schema_wuf_predict_v5.sql; no apliques ese instalador sobre una base existente."
+            "backend/schema_wuf_predict_v6.sql; no apliques ese instalador sobre una base existente."
+        )
+
+
+def verify_hu06_schema() -> None:
+    """Exige las tablas limpias que guardan los modelos y asignaciones K-Means de OE3."""
+    required_tables = {"modelo_segmentacion", "asignacion_segmento", "reporte_segmento_detalle"}
+    required_columns = {
+        ("reporte_priorizacion", "id_ejecucion"),
+        ("reporte_priorizacion", "id_modelo_segmentacion"),
+        ("modelo_segmentacion", "silhouette_score"),
+        ("modelo_segmentacion", "artefacto_sha256"),
+        ("asignacion_segmento", "id_snapshot"),
+        ("asignacion_segmento", "numero_segmento"),
+    }
+    with engine.connect() as connection:
+        tables = set(connection.execute(text("""
+            SELECT table_name FROM information_schema.tables
+            WHERE table_schema=current_schema()
+        """)).scalars().all())
+        columns = {
+            (row[0], row[1]) for row in connection.execute(text("""
+                SELECT table_name, column_name FROM information_schema.columns
+                WHERE table_schema=current_schema()
+            """)).all()
+        }
+    if not required_tables.issubset(tables) or not required_columns.issubset(columns):
+        raise RuntimeError(
+            "Falta el esquema limpio de segmentación OE3. Crea una base vacía y ejecuta "
+            "backend/schema_wuf_predict_v6.sql; no lo ejecutes como migración sobre una base con datos."
         )

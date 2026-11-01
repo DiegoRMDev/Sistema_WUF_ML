@@ -73,7 +73,7 @@
         <div class="stat">
           <p class="label">OE3 · Perfiles desfavorecidos</p>
           <div class="row"><p class="value">88</p><p class="meta">de 115 disponibles</p></div>
-          <p class="trend">Edad avanzada, tamaño grande o condición especial · meta: +15 % en adopciones</p>
+          <p class="trend">Grupos de perfiles elegibles por atributos · K-Means</p>
         </div>
       </div>
       <div class="two">
@@ -200,6 +200,7 @@
       <div class="model-tabs" role="tablist" aria-label="Tipo de modelo">
         <button type="button" class="model-tab active" id="adoptionTab" role="tab" aria-selected="true" aria-controls="adoptionPanel" data-model-tab="adoption">Predicción de Adopción (Random Forest)</button>
         <button type="button" class="model-tab" id="consistencyTab" role="tab" aria-selected="false" aria-controls="consistencyPanel" data-model-tab="consistency" tabindex="-1">Riesgo de desactualización (Árbol de Decisión)</button>
+        <button type="button" class="model-tab" id="segmentationTab" role="tab" aria-selected="false" aria-controls="segmentationPanel" data-model-tab="segmentation" tabindex="-1">Perfiles desfavorecidos (K-Means)</button>
       </div>
       <div id="adoptionPanel" role="tabpanel" aria-labelledby="adoptionTab">
       <p class="lead">Random Forest para estimar la probabilidad de adopción de las mascotas.</p>
@@ -267,6 +268,32 @@
           <div class="tablewrap"><table><thead><tr><th>Versión</th><th>Estado</th><th>Accuracy</th><th>F1 macro</th><th>Entrenamiento</th><th>Acción</th></tr></thead><tbody id="consistencyHistory"><tr><td colspan="6" class="muted">Todavía no hay versiones.</td></tr></tbody></table></div>
       </div>
       </div>
+      <div id="segmentationPanel" role="tabpanel" aria-labelledby="segmentationTab" hidden>
+        <p class="lead">Agrupa perfiles disponibles con características asociadas a perfiles desfavorecidos usando edad, tamaño, energía y condición especial.</p>
+        <div class="card pad">
+          <div class="card-head"><h2>Entrenar segmentación</h2></div>
+          <div class="field segmentation-form-field"><label for="segmentationK">Cantidad de segmentos (K)</label>
+            <select id="segmentationK"><option value="2" selected>2 segmentos</option><option value="3">3 segmentos</option><option value="4">4 segmentos</option><option value="5">5 segmentos</option></select>
+          </div>
+          <p class="muted" id="segmentationOptionsSummary">Se usan los perfiles disponibles que cumplen al menos un criterio de inclusión. Silhouette resume qué tan separados quedan los grupos.</p>
+          <div class="toolbar"><button type="button" class="primary" id="trainSegmentationButton"><i data-lucide="network"></i>Entrenar K-Means</button></div>
+        </div>
+        <div class="card pad" id="segmentationCurrentCard">
+          <div class="card-head"><h2 id="segmentationModelTitle">Segmentación vigente</h2><span class="tag neutral" id="segmentationModelStatus">Sin modelo</span></div>
+          <p class="muted" id="segmentationModelSummary">Entrena y activa una versión para ver los grupos de perfiles.</p>
+          <div class="segmentation-clusters" id="segmentationClusterSummaries"></div>
+        </div>
+        <div class="card pad segmentation-scatter-card" id="segmentationScatterCard" hidden>
+          <div class="card-head"><h2>Gráfico de dispersión de clústeres</h2></div>
+          <p class="muted" id="segmentationScatterNote">Cada punto representa un perfil. La proyección resume las variables en dos ejes para facilitar la lectura; los segmentos se calculan con todas las variables.</p>
+          <div class="segmentation-scatter" id="segmentationScatter" aria-live="polite"></div>
+          <div class="segmentation-scatter-legend" id="segmentationScatterLegend" aria-label="Leyenda de segmentos"></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>Historial de segmentaciones</h2></div>
+          <div class="tablewrap"><table><thead><tr><th>Versión</th><th>Captura</th><th>Perfiles</th><th>Segmentos</th><th>Silhouette</th><th>Estado</th><th>Acción</th></tr></thead><tbody id="segmentationHistory"><tr><td colspan="7" class="muted">Cargando modelos…</td></tr></tbody></table></div>
+        </div>
+      </div>
     </section>
 
     <section class="view hidden" id="view-alertas">
@@ -308,16 +335,6 @@
           </div>
         </div>
       </div>
-      <div class="card pad report-segment-card" id="reportDisadvantagedSummary" hidden>
-        <div class="card-head"><h2>Perfiles con atributos desfavorecidos</h2><span class="muted" id="reportDisadvantagedTotal"></span></div>
-        <p class="muted report-segment-note">Los criterios pueden superponerse. Las edades no indicadas no cuentan como edad avanzada; los valores estimados se señalan en cada perfil.</p>
-        <div class="report-segment-counts">
-          <span>Edad avanzada: <strong id="reportSeniorCount">0</strong></span>
-          <span>Tamaño grande: <strong id="reportLargeCount">0</strong></span>
-          <span>Condición especial: <strong id="reportSpecialCount">0</strong></span>
-          <span>Edad no indicada: <strong id="reportUnknownAgeCount">0</strong></span>
-        </div>
-      </div>
       <div class="toolbar" id="reportToolbar" hidden>
         <label for="reportSearch">Buscar por SKU o nombre</label>
         <input id="reportSearch" type="search" maxlength="100" placeholder="Ej. WUF0001 o Arcanie" autocomplete="off">
@@ -325,14 +342,6 @@
         <select id="reportPriorityFilter">
           <option value="">Todas</option><option value="alta">Alta</option>
           <option value="media">Media</option><option value="baja">Baja</option>
-        </select>
-        <label for="reportDisadvantagedFilter">Atributo desfavorecido</label>
-        <select id="reportDisadvantagedFilter">
-          <option value="">Todos</option>
-          <option value="edad_avanzada">Edad avanzada</option>
-          <option value="tamano_grande">Tamaño grande</option>
-          <option value="condicion_especial">Condición especial</option>
-          <option value="ninguno">Ninguno</option>
         </select>
         <span class="muted" id="reportFilterCount" aria-live="polite"></span>
         <div class="spacer"></div>
@@ -342,11 +351,31 @@
         </div>
       </div>
       <div class="card report-table-card">
-        <div class="card-head"><h2>Mascotas disponibles ordenadas por prioridad</h2><span class="muted" id="reportTotal"></span></div>
+        <div class="card-head"><h2>Mascotas ordenadas por prioridad</h2><span class="muted" id="reportTotal"></span></div>
         <div class="tablewrap report-table-scroll">
           <table>
-            <thead><tr><th>SKU</th><th>Nombre</th><th>Especie</th><th>Sexo</th><th>Edad</th><th>Tamaño</th><th>Condición especial</th><th>Orden</th><th>Probabilidad estimada de adopción</th><th>Prioridad</th><th>Atributos desfavorecidos</th></tr></thead>
-            <tbody id="reportRows"><tr><td colspan="11" class="muted">Cargando reporte…</td></tr></tbody>
+            <thead><tr><th>SKU</th><th>Nombre</th><th>Especie</th><th>Sexo</th><th>Edad</th><th>Tamaño</th><th>Condición especial</th><th>Orden</th><th>Probabilidad estimada de adopción</th><th>Prioridad</th></tr></thead>
+            <tbody id="reportRows"><tr><td colspan="10" class="muted">Cargando reporte…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card pad report-segment-card" id="reportOe3Summary" hidden>
+        <div class="card-head"><h2>Segmentos de perfiles desfavorecidos</h2><span class="muted" id="reportOe3SummaryMeta"></span></div>
+        <p class="muted" id="reportOe3State"></p>
+        <div class="segmentation-clusters" id="reportOe3Clusters"></div>
+      </div>
+      <div class="toolbar report-oe3-toolbar" id="reportOe3Toolbar" hidden>
+        <label for="reportOe3Search">Buscar por SKU o nombre</label>
+        <input id="reportOe3Search" type="search" maxlength="100" placeholder="Ej. WUF0001 o Arcanie" autocomplete="off">
+        <label for="reportOe3Filter">Segmento</label>
+        <select id="reportOe3Filter"><option value="">Todos</option></select>
+        <span class="muted" id="reportOe3FilterCount" aria-live="polite"></span>
+      </div>
+      <div class="card report-table-card" id="reportOe3TableCard" hidden>
+        <div class="card-head"><h2>Perfiles desfavorecidos agrupados por segmento</h2><span class="muted" id="reportOe3Total"></span></div>
+        <div class="tablewrap report-table-scroll">
+          <table><thead><tr><th>SKU</th><th>Nombre</th><th>Motivos de inclusión</th><th>Segmento</th><th>Resumen del segmento</th></tr></thead>
+            <tbody id="reportOe3Rows"><tr><td colspan="5" class="muted">Todavía no hay un modelo de segmentación aplicado.</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -354,8 +383,8 @@
         <div class="card-head"><h2>Historial de reportes</h2><span class="muted">Las exportaciones quedan guardadas aquí</span></div>
         <div class="tablewrap report-history-scroll">
           <table>
-            <thead><tr><th>Fecha de generación</th><th>Semana</th><th>Modelo</th><th>Formato</th><th>Registros</th><th>Generado por</th><th>Acción</th></tr></thead>
-            <tbody id="reportHistoryRows"><tr><td colspan="7" class="muted">Cargando historial…</td></tr></tbody>
+            <thead><tr><th>Fecha</th><th>Semana</th><th>Modelo de prioridad</th><th>Modelo de segmentación</th><th>Mascotas priorizadas</th><th>Perfiles segmentados</th><th>Formato</th><th>Generado por</th><th>Acción</th></tr></thead>
+            <tbody id="reportHistoryRows"><tr><td colspan="9" class="muted">Cargando historial…</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -412,6 +441,6 @@
 
 <script src="config.js"></script>
 <div id="toastRegion" class="toast-region" aria-label="Mensajes del sistema"></div>
-<script src="app.js?v=hu06-segment-2"></script>
+<script src="app.js?v=hu06-segment-6"></script>
 </body>
 </html>

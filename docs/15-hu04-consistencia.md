@@ -59,7 +59,7 @@ El servicio aplica la regla a los perfiles disponibles de la captura completa m�
 - Al guardar la evaluación, HU07 genera o actualiza alertas internas de prioridad alta a partir de la regla operativa; no usa la predicción del árbol como único criterio para notificar. Las alertas se explican como solicitudes de revisión, no como fallos confirmados.
 - `modelo_consistencia` conserva versiones, parámetros y métricas; `evaluacion_consistencia` relaciona árbol, mascota, snapshot y ejecución, junto con los indicadores y la justificación.
 - `evaluacion_consistencia.indicadores` conserva en JSONB las variables, `dias_sin_cambio_observado`, la predicción del árbol y la comparación con la regla. Los días se cuentan desde el inicio de la secuencia disponible observada en los CSV; no prueban el historial real de WUF.
-- El esquema limpio v5 mantiene la regla actual `prioridad_revision_hu04_v2`, enlaza alertas con las evaluaciones y guarda acciones humanas en `alerta_atencion`. Consulta [`04-modulos-hu.md`](04-modulos-hu.md) para el ciclo HU07.
+- El esquema limpio v6 mantiene la regla actual `prioridad_revision_hu04_v2`, enlaza alertas con las evaluaciones y guarda acciones humanas en `alerta_atencion`. Consulta [`04-modulos-hu.md`](04-modulos-hu.md) para el ciclo HU07.
 
 ## API
 
@@ -71,9 +71,9 @@ El servicio aplica la regla a los perfiles disponibles de la captura completa m�
 
 ## Instalación de la extensión
 
-Para HU07 crea una base nueva y vacía `wuf_predict_v7`, y ejecuta desde pgAdmin **solo** `backend/schema_wuf_predict_v5.sql`. Este instalador integra HU01–HU07; no lo ejecutes sobre la base v6 ni apliques upgrades a la instalación nueva.
+Para HU07 crea una base nueva y vacía `wuf_predict_v8`, y ejecuta desde pgAdmin **solo** `backend/schema_wuf_predict_v6.sql`. Este instalador integra HU01–HU07; no lo ejecutes sobre la base v7 ni apliques upgrades a la instalación nueva.
 
-Los scripts `upgrade_hu04_*.sql` se conservan para bases históricas que necesiten esos cambios; no se aplican a la instalación limpia v5.
+Los scripts `upgrade_hu04_*.sql` se conservan para bases históricas que necesiten esos cambios; no se aplican a la instalación limpia v6.
 
 Los parámetros opcionales son:
 
@@ -90,7 +90,7 @@ CONSISTENCY_MAX_CAPTURE_GAP_DAYS=14
 
 Con al menos tres capturas completas, ingresa como Analista a **Entrenamiento**, selecciona profundidad y porcentaje de prueba, y pulsa **Entrenar árbol y evaluar catálogo**. La evaluación queda en HU04 y las prioridades altas se generan/actualizan en **Alertas de desactualización**. Cada entrenamiento crea una versión nueva; las anteriores se conservan para consulta.
 
-La base anterior `wuf_predict_v6` usa esquema v4 y no tiene las tablas de atención HU07; el código nuevo requiere que `DATABASE_URL` apunte a `wuf_predict_v7` con esquema v5.
+La base anterior `wuf_predict_v7` usa esquema v5 y no se modifica; el código actual requiere que `DATABASE_URL` apunte a `wuf_predict_v8` con esquema v6.
 
 ## Pendiente para validar con datos reales
 

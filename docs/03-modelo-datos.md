@@ -1,6 +1,6 @@
 # Modelo físico y diccionario de datos
 
-Este documento conserva el diccionario físico del avance y distingue los esquemas históricos del instalador limpio más reciente. [`../backend/schema_wuf_predict_v4.sql`](../backend/schema_wuf_predict_v4.sql) corresponde a la base anterior `wuf_predict_v6` (HU01–HU04); [`../backend/schema_wuf_predict_v5.sql`](../backend/schema_wuf_predict_v5.sql) integra HU01–HU07 para una base nueva. El SQL no migra ni elimina datos existentes.
+Este documento conserva el diccionario físico del avance y distingue los esquemas históricos del instalador limpio más reciente. [`../backend/schema_wuf_predict_v4.sql`](../backend/schema_wuf_predict_v4.sql) corresponde a la base anterior `wuf_predict_v6` (HU01–HU04); [`../backend/schema_wuf_predict_v6.sql`](../backend/schema_wuf_predict_v6.sql) integra HU01–HU07 y HU06/OE3 con K-Means para una base nueva. El SQL no migra ni elimina datos existentes.
 
 ## Diccionario de datos del esquema anterior
 
@@ -218,7 +218,7 @@ Registra las ejecuciones manuales por CSV y los contadores mostrados en la panta
 - `reporte_priorizacion.id_usuario` referencia `usuario.id_usuario`.
 - `modelo_predictivo.id_dataset` referencia `dataset_historico.id_dataset`.
 
-HU05 reutiliza `reporte_priorizacion` para auditar usuario, semana ISO, fecha y formato de cada exportación. Las filas del archivo se conservan como copias en `prediccion` con `id_reporte` asignado; cada copia mantiene las relaciones con el modelo, mascota y ejecución fuente. La lectura del catálogo sigue usando predicciones con `id_reporte IS NULL`, así que los reportes históricos no sustituyen las predicciones actuales. No se requieren columnas nuevas ni migración para HU05 en el esquema v5.
+HU05 reutiliza `reporte_priorizacion` para auditar usuario, semana ISO, fecha y formato de cada exportación. Las predicciones OE1 se conservan como copias con `id_reporte`; v6 también guarda la ejecución, el modelo de segmentación OE3 y las asignaciones exactas incluidas en el reporte. La lectura del catálogo sigue usando predicciones con `id_reporte IS NULL`, así que los reportes históricos no sustituyen las predicciones actuales.
 
 ## Orden de creación
 
@@ -233,7 +233,7 @@ El esquema se ajusta al diccionario; estos puntos describen capacidades que el d
 3. **Fecha de captura y calendario:** HU01 valida la fecha del nombre `captura_AAAA-MM-DD.csv` o `captura_demo_AAAA-MM-DD.csv`, deriva la semana ISO y la separa del instante real de importación (`fecha_inicio`/`fecha_fin`).
 4. **Calidad de CSV:** se validan encabezados exactos, codificación UTF-8, tamaño, dominios, tipos y SKU duplicados. Los perfiles inválidos se rechazan con un resumen; no se generan valores para completar campos obligatorios.
 5. **Vinculación snapshot-dataset:** cada snapshot tiene como máximo un `id_dataset` en esta estructura, que además puede ser nulo. Si HU02 conserva capturas fuente y genera distintas versiones de dataset a partir de ellas, el modelo actual no representa bien una relación muchos-a-muchos. Para una base objetivo considerar una tabla de asociación `dataset_snapshot` o registrar el rango/manifiesto inmutable de snapshots usado por cada dataset.
-6. **Seguimiento de alertas:** el instalador v5 resuelve el límite del diccionario inicial al enlazar cada alerta con evaluaciones HU04 y guardar cada cambio en `alerta_atencion` con usuario, fecha y nota.
+6. **Seguimiento de alertas:** el instalador limpio v5 introdujo los vínculos entre alertas y evaluaciones HU04, además de guardar cambios en `alerta_atencion` con usuario, fecha y nota. v6 conserva esa estructura e incorpora HU06/OE3.
 7. **Control de unicidad y dominios:** el diccionario no enumera dominios para estado, sexo, rol, formato y prioridad. La aplicación debe validar esos valores; los `CHECK` añadidos se limitan a rangos numéricos, fechas, estado/origen de las ejecuciones y completitud de snapshots nuevos.
 8. **Identidad/idempotencia:** `UNIQUE (sku)` identifica una mascota entre ejecuciones y `UNIQUE (id_ejecucion, id_mascota)` impide duplicarla dentro de una captura. Los CSV deben conservar el SKU para el mismo animal y no reutilizarlo para otro. Cada nombre de archivo se consume una vez. La migración CSV crea el índice único; si hay SKU duplicados existentes, hay que resolverlos antes.
 9. **Ejecuciones de recolección:** HU01 puede registrar tipo, inicio/fin, semana, conteos, estado, error y usuario iniciador. “Vigente” se deriva de la última ejecución completada, no se almacena como estado.
@@ -245,7 +245,7 @@ El archivo `schema.sql` crea el modelo físico documentado y las extensiones de 
 
 ## Esquema v2 para HU02 y el prototipo
 
-Las bases anteriores `wuf_predict_v2` y `wuf_predict_v3` usaron revisiones previas del esquema para HU02. `wuf_predict_v6` conserva el instalador integrado v4 para HU01–HU04. Para ejecutar el backend con HU07 se debe crear una base nueva `wuf_predict_v7` con [`../backend/schema_wuf_predict_v5.sql`](../backend/schema_wuf_predict_v5.sql). El archivo v2 se conserva como referencia histórica; ninguno de estos instaladores se ejecuta sobre una base que ya tenga datos.
+Las bases anteriores `wuf_predict_v2` y `wuf_predict_v3` usaron revisiones previas del esquema para HU02. `wuf_predict_v6` corresponde al esquema v4 y `wuf_predict_v7` al instalador limpio v5. Para ejecutar el backend actual se debe crear una base nueva `wuf_predict_v8` con [`../backend/schema_wuf_predict_v6.sql`](../backend/schema_wuf_predict_v6.sql). Los esquemas antiguos se conservan como referencia; ninguno de estos instaladores se ejecuta sobre una base que ya tenga datos.
 
 Cambios del diseño v2:
 
@@ -259,7 +259,7 @@ Cambios del diseño v2:
 
 ### Extensión de persistencia para HU03
 
-[`../backend/schema_wuf_predict_v2.sql`](../backend/schema_wuf_predict_v2.sql) ya contiene las estructuras HU03. Los esquemas v4 y v5 integran progresivamente módulos posteriores; el esquema v5 incluye la persistencia HU07 descrita abajo. Los scripts `upgrade_*.sql` se conservan solo para bases históricas que necesiten esa actualización.
+[`../backend/schema_wuf_predict_v2.sql`](../backend/schema_wuf_predict_v2.sql) ya contiene las estructuras HU03. Los esquemas v4, v5 y v6 integran progresivamente módulos posteriores; el esquema v6 incorpora HU06/OE3 sobre la versión limpia v5. Los scripts `upgrade_*.sql` se conservan solo para bases históricas que necesiten esa actualización.
 
 | Campo | Propósito |
 |---|---|
@@ -275,7 +275,7 @@ El artefacto se guarda en `MODEL_ARTIFACT_DIR`, fuera de `frontend/public/`; el 
 
 ### Persistencia de evaluación HU04 y alertas HU07
 
-El esquema limpio v5 incluye `modelo_consistencia`, `evaluacion_consistencia`, `alerta_desactualizacion` y `alerta_atencion`. Las evaluaciones contienen una prioridad demo, indicadores JSONB y justificación; las alertas se crean solo para prioridad alta y mantienen los enlaces a su evaluación inicial y más reciente. Las notas y transiciones humanas se guardan como eventos auditables.
+El esquema limpio v6 incluye `modelo_consistencia`, `evaluacion_consistencia`, `alerta_desactualizacion` y `alerta_atencion`. Las evaluaciones contienen una prioridad demo, indicadores JSONB y justificación; las alertas se crean solo para prioridad alta y mantienen los enlaces a su evaluación inicial y más reciente. Las notas y transiciones humanas se guardan como eventos auditables.
 
 | Tabla | Responsabilidad |
 |---|---|
@@ -294,7 +294,7 @@ La UI del prototipo muestra semanas 6, 7 y 8 como contenido ilustrativo. En los 
 
 ### Instalación limpia para HU07
 
-La base anterior `wuf_predict_v6` conserva esquema v4 y no debe recibir el instalador nuevo. Para usar HU07, crea una base vacía `wuf_predict_v7` en PostgreSQL 16, ejecuta [`../backend/schema_wuf_predict_v5.sql`](../backend/schema_wuf_predict_v5.sql) una sola vez y configura `DATABASE_URL` en `backend/.env` hacia esa base. El script contiene 19 tablas, usa transacción y no elimina ni reemplaza bases anteriores. Reimporta los CSV y vuelve a crear las cuentas necesarias en la base nueva.
+La base anterior `wuf_predict_v7` conserva el esquema limpio v5 y no debe recibir el instalador nuevo. Para usar HU06/OE3, crea una base vacía `wuf_predict_v8` en PostgreSQL 16, ejecuta [`../backend/schema_wuf_predict_v6.sql`](../backend/schema_wuf_predict_v6.sql) una sola vez y configura `DATABASE_URL` en `backend/.env` hacia esa base. El instalador v6 contiene 22 tablas, usa transacción y no elimina ni reemplaza bases anteriores. Reimporta los CSV y vuelve a crear las cuentas necesarias en la base nueva.
 
 ## Actualizar una base ya creada
 

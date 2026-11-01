@@ -1,88 +1,81 @@
 # HU08 — Enfoque de indicadores estratégicos
 
-## Propósito y alcance
+## Contexto del sistema simulado
 
-WUF Predict es un sistema de Machine Learning simulado aplicado a un negocio real. HU08 presentará cómo los módulos apoyan los objetivos estratégicos con los datos de prueba del proyecto. Los resultados describen el escenario simulado; no prueban que WUF haya alcanzado los mismos efectos en su operación real.
+WUF Predict aplica modelos a CSV de demostración para representar un caso real. Sus resultados sirven para probar la lógica y explicar el apoyo que daría el sistema; no prueban que WUF haya alcanzado efectos en producción. La salida del catálogo de HU02 es un proxy y no confirma una adopción.
 
-El PDF define estas metas:
+## Objetivos vigentes y relación con los módulos
 
-| Objetivo | KPI del documento | Meta |
-|---|---|---:|
-| OE1 — Aumentar la priorización de difusión de mascotas con baja probabilidad de adopción para reducir su permanencia visible. | Nivel de priorización de difusión aplicado a mascotas de baja probabilidad. | Aumento del 25 % |
-| OE2 — Mejorar la exactitud del estado del catálogo. | Exactitud del estado del catálogo. | 98 % |
-| OE3 — Incrementar las adopciones de perfiles históricamente desfavorecidos por edad, tamaño o condición especial. | Tasa de adopción de perfiles desfavorecidos. | Incremento del 15 % |
+| Objetivo | Indicador que puede mostrar la simulación | Método |
+|---|---|---|
+| **OE1:** priorizar la difusión de mascotas con baja probabilidad estimada de adopción. | Distribución de probabilidades y prioridades entre las mascotas disponibles. | Random Forest supervisado, HU03. |
+| **OE2:** apoyar la revisión del estado publicado. | Perfiles priorizados para revisión y coincidencia del árbol con la regla de referencia. No equivale a exactitud real del catálogo. | Árbol de decisión supervisado, HU04. |
+| **OE3:** identificar perfiles desfavorecidos semejantes para orientar análisis/campañas diferenciadas. | Cantidad y composición de los segmentos encontrados en la cohorte HU06; Silhouette como diagnóstico de separación. No se fija una meta de aumento de adopciones. | K-Means no supervisado, HU06. |
 
-Las metas son objetivos del proyecto, no valores que el sistema deba mostrar como ya alcanzados. HU08 debe presentar valor observado en la simulación, meta, periodo, tendencia y estado sin datos cuando corresponda.
+La definición inicial de OE3 proponía elevar en 15 % la tasa de adopción usando otro Random Forest. Se reemplaza por la nueva formulación porque el conjunto de prueba no contiene adopciones reales ni resultados de campañas; además, una segunda cifra de probabilidad de adopción se confundía con la estimación OE1. El KPI de la simulación pasa a ser descriptivo: presenta cuántos perfiles hay en cada segmento y sus características. No se interpreta como mejora porcentual de adopciones.
 
-## Cómo se relacionan los módulos
+## Datos y flujo de cada objetivo
 
-- **HU01** importa manualmente los CSV que simulan capturas del catálogo.
-- **HU02** compara snapshots y deriva `Permanece` o `Salió del catálogo`. La segunda etiqueta es un proxy de salida, no una adopción confirmada.
-- **HU03** entrena el Random Forest con esas etiquetas. Sus probabilidades y prioridades pueden alimentar el análisis simulado de OE1 y OE3.
-- **HU04** actualmente asigna prioridades provisionales de revisión mediante una regla y entrena un árbol para aproximarla. Sus métricas comparan el árbol con esa regla; no miden directamente la exactitud del estado publicado requerida por OE2.
-- **HU05** presenta/exporta la priorización para apoyar decisiones de difusión; el reporte se genera a demanda, a partir de datos disponibles.
-- **HU06** segmenta perfiles por edad avanzada (96 meses o más), tamaño grande o condición especial. Esto identifica la cohorte inicial para el análisis de OE3, pero no calcula por sí solo el KPI.
-- **HU08** consolida los KPI y explica su fuente, cálculo, periodo y carácter simulado.
+- **HU01** importa capturas CSV manualmente y conserva una copia del perfil por captura en `snapshot_catalogo`.
+- **HU02** compara capturas y produce las clases proxy `permanece` / `salio_catalogo`.
+- **OE1 / HU03:** Random Forest aprende con las filas etiquetadas del dataset histórico. Devuelve una probabilidad de salida del catálogo que la interfaz denomina “Probabilidad estimada de adopción” y usa para la prioridad. Es la única probabilidad de adopción mostrada al usuario.
+- **OE2 / HU04:** el árbol aprende a aproximar la regla provisional de revisión. Los indicadores reflejan cuánto reproduce esa regla, no si WUF publicó un estado incorrecto real.
+- **OE3 / HU06:** la regla HU06 filtra perfiles disponibles con edad de 96 meses o más, tamaño grande o condición especial. Después K-Means los agrupa por similitud. No usa la etiqueta HU02 ni los resultados OE1/OE2.
+- **HU05:** muestra OE1 y OE3 en tablas distintas. PDF contiene secciones separadas y Excel hojas separadas; el historial archiva los dos modelos y los perfiles incluidos.
 
-## Fórmulas candidatas para la simulación
+## Detalle de K-Means en OE3
 
-El PDF especifica las metas y los nombres de los KPI, pero no fija sus denominadores, línea base ni ventana temporal. Las fórmulas siguientes son una propuesta de trabajo para acordar antes de implementar HU08.
+### Cohorte y variables
 
-### OE1 — Priorización de difusión
+El modelo se ajusta únicamente con perfiles **disponibles** que cumplen uno o más criterios HU06. Sus variables originales son:
 
-Una medida operativa del nivel de priorización podría ser:
+1. Edad en meses.
+2. Indicador de edad estimada.
+3. Tamaño.
+4. Indicador de tamaño estimado.
+5. Condición especial.
+6. Nivel de energía.
 
-`Cobertura de priorización = mascotas de baja probabilidad que reciben prioridad alta de difusión / total de mascotas elegibles de baja probabilidad × 100`
+Se excluyen especie, SKU, nombre, orden de publicación, estado, fecha de publicación, etiqueta del dataset y probabilidad OE1. Los identificadores solo se usan para recuperar y mostrar la fila, nunca para formar los grupos.
 
-El aumento se compara con una línea base simulada:
+El pipeline imputa las edades numéricas desconocidas y escala las columnas numéricas; convierte tamaño y energía a columnas categóricas codificadas, imputando sus ausencias si aparecen. La marca de edad estimada se conserva como característica. No se interpreta una edad desconocida como edad baja.
 
-`Aumento relativo = (cobertura del escenario con priorización − cobertura base) / cobertura base × 100`
+### Entrenamiento y lectura de resultados
 
-La meta es 25 % de aumento relativo. Debe acordarse qué banda de HU03 representa “baja probabilidad” y qué significa “recibir difusión” dentro de la simulación. Si no se simulan acciones de difusión, el sistema solo podrá informar cuántas mascotas recomienda priorizar, no cuántas recibieron difusión.
+El Analista selecciona K entre 2 y 5; la interfaz inicia con K=2 porque en el conjunto actual produce grupos más simples y equilibrados, aunque el Analista puede comparar otras opciones. K-Means minimiza distancias a los centros de los grupos; `random_state` y `n_init` se fijan para hacer repetible el cálculo. Las versiones se guardan aparte de `modelo_predictivo` porque no son clasificadores supervisados.
 
-El tiempo promedio visible puede mostrarse como indicador complementario solo si los CSV proporcionan fechas suficientes y una regla consistente para determinar cuándo termina la permanencia. La salida del catálogo no debe etiquetarse como adopción confirmada.
+- **Silhouette** va de −1 a 1: cerca de 1 sugiere grupos separados; cerca de 0, perfiles en fronteras; bajo 0, posibles asignaciones poco coherentes. No es Accuracy y no tiene un umbral de publicación acordado.
+- **Inertia** suma las distancias cuadráticas a los centros. Se usa como dato complementario al comparar K; por sí sola baja al aumentar el número de grupos y no define qué K es mejor.
+- Las tarjetas resumen cantidad, tamaño/energía más frecuentes, mediana de edad y criterios HU06. Los números “Segmento 1, 2…” son etiquetas nominales: no ordenan grupos por probabilidad ni prioridad y pueden cambiar entre versiones.
+- El Analista revisa esos resultados antes de activar el candidato. Tras una nueva captura, debe volver a aplicar la versión activa para asociar perfiles de esa captura con sus grupos.
 
-### OE2 — Exactitud del estado del catálogo
+## Comprobación con los CSV actuales
 
-En la simulación, cada observación debe tener un estado de referencia conocido, distinto del estado que el sistema estima:
+La validación del algoritmo se realizó con el archivo de la captura final `data/capturas/escenario_hu02_variable_v4/captura_demo_2026-10-12.csv`: 190 perfiles, 86 disponibles y 68 que cumplen la selección HU06. La ejecución de K-Means no usó las etiquetas HU02. Con semilla 42 y 20 reinicios, la prueba de K produjo:
 
-`Exactitud = perfiles cuyo estado estimado coincide con el estado de referencia / total de perfiles evaluados × 100`
+| K | Silhouette | Tamaños observados de los grupos |
+|---:|---:|---|
+| 2 | 0.2650 | 49, 19 |
+| 3 | 0.2454 | 44, 22, 2 |
+| 4 | 0.2943 | 14, 39, 13, 2 |
+| 5 | 0.2807 | 14, 12, 27, 2, 13 |
 
-La meta es 98 %. La referencia puede ser una etiqueta controlada creada para el escenario de prueba, identificada como simulada. **La implementación actual de HU04 no calcula este KPI:** compara el árbol con prioridades derivadas de una regla de revisión. Antes de presentar Accuracy de HU04 como OE2, se debe definir cómo generar/guardar el estado de referencia y cómo evaluar la predicción de “estado correcto/incorrecto”.
+Estos resultados muestran que el pipeline sí forma grupos y que la separación es moderada, no perfecta. K=4 obtiene el Silhouette mayor en esta prueba, pero crea un grupo de dos perfiles; K=2 es más sencillo y equilibrado. El Analista puede comparar los resúmenes antes de activar. Ninguno de estos resultados demuestra que un atributo cause la adopción.
 
-### OE3 — Tasa de adopción de perfiles desfavorecidos
+Los CSV v4 tienen 180, 165 y 190 filas; la regla HU06 se aplica sobre la última captura al activar o actualizar segmentos. La cantidad de perfiles elegibles puede cambiar entre importaciones.
 
-HU06 ya define el conjunto inicial de perfiles desfavorecidos usando edad avanzada (96 meses o más), tamaño grande o condición especial. Las estimaciones se indican y una edad no disponible no satisface el criterio etario.
+## Presentación en reportes
 
-Para el escenario simulado puede calcularse una tasa proxy:
+- **OE1:** una tabla con atributos del catálogo, probabilidad estimada y prioridad del Random Forest.
+- **OE3:** una tabla distinta con SKU/nombre, criterios HU06, segmento K-Means y resumen del grupo. No muestra una probabilidad ni prioridad OE3.
+- Los filtros visuales son independientes. Los archivos PDF/Excel exportan las filas completas; Excel separa OE1 y OE3 en hojas distintas.
+- Si no hay versión activa o las asignaciones pertenecen a una captura anterior, OE1 sigue disponible si sus datos están completos y OE3 muestra su estado pendiente. No se reutilizan asignaciones viejas como si fueran actuales.
+- La exportación guarda referencia a las dos versiones y los snapshots incluidos para permitir descargas históricas reproducibles.
 
-`Tasa proxy = perfiles desfavorecidos con etiqueta sintética de salida / perfiles desfavorecidos elegibles × 100`
+## Reglas de presentación y pendientes de HU08
 
-El incremento se compara con una línea base simulada equivalente:
-
-`Incremento relativo = (tasa del escenario con priorización − tasa base) / tasa base × 100`
-
-La meta es 15 %. La etiqueta actual `Salió del catálogo` sirve como proxy para ejercicios del modelo, pero no confirma una adopción. El dashboard debe llamarla tasa proxy/simulada si se usa; no presentarla como tasa real de adopción. Quedan por acordar la cohorte, el periodo, la línea base y cómo interpretar el incremento; HU06 aporta la segmentación, pero no demuestra un aumento de adopciones.
-
-## Reglas de presentación en HU08
-
-- Mostrar **meta**, **valor simulado**, **periodo**, **tendencia**, **fecha de actualización** y una descripción breve de la fuente/fórmula.
-- Indicar claramente “Simulación” o “Datos de prueba” cuando el KPI use CSV demo o etiquetas proxy.
-- No mostrar la meta como lograda si no se calculó el valor. Sin registros suficientes, mostrar “Sin datos para este periodo”.
-- No equiparar Accuracy del modelo con el KPI estratégico: el umbral técnico de publicación de HU03 (75 % por defecto) no es la meta 98 % de OE2.
-- No sumar, promediar ni comparar periodos con denominadores distintos sin explicar la fórmula y la cohorte.
-- Permitir que los tres roles consulten el dashboard, de acuerdo con el alcance de HU08; las acciones de entrenamiento y administración de datos conservan sus permisos actuales.
-
-## Pendientes antes de implementar los KPI
-
-1. Acordar las fórmulas y la interpretación de “aumento” (relativo o puntos porcentuales) con respecto a la línea base.
-2. Definir periodo de comparación y qué ejecuciones/datasets entran en cada cálculo.
-3. Definir las acciones simuladas de difusión necesarias para OE1.
-4. Alinear HU04 con el objetivo de estado correcto/incorrecto de OE2 o mantener su prioridad de revisión separada y no usar sus métricas como KPI OE2.
-5. Acordar la cohorte, el periodo y la línea base para OE3, usando la segmentación definida por HU06.
-6. Definir cómo se generan y versionan las etiquetas de referencia simuladas para que los KPI sean reproducibles y auditables.
-
-## Criterio de aceptación para HU08
-
-Cada KPI presenta una cifra derivada de datos persistidos, su meta y periodo, su fórmula/fuente y su condición simulada cuando corresponda. Los casos sin datos se explican sin inventar valores. La documentación y la interfaz distinguen las métricas técnicas de los modelos de los KPI estratégicos.
-
+- Identificar resultados hechos con datos simulados; no etiquetar la distribución de segmentos como tasa de adopción.
+- Mantener las métricas técnicas de modelos separadas de indicadores estratégicos. El Silhouette pertenece a OE3; Accuracy de HU03/HU04 no es un KPI estratégico.
+- OE1 y OE2 conservan las metas del planteamiento original como objetivos del proyecto, pero la simulación no puede afirmar que las alcanzó en la operación de WUF.
+- Antes de construir HU08, acordar el periodo y las fórmulas para mostrar la evolución de OE1/OE2. Para OE3, mostrar cantidad/composición de grupos por captura y versión K-Means; no comparar etiquetas de segmentos entre versiones como si fueran la misma clase.
+- Si posteriormente se desea volver a medir incremento real de adopciones, se necesitarían resultados confirmados y un periodo de referencia antes/después de campañas. Ese KPI queda fuera de los datos actuales.

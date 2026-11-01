@@ -7,6 +7,9 @@ const ROLE_LABELS = {
 };
 const API_BASE = window.WUF_CONFIG?.apiBaseUrl?.replace(/\/$/, "");
 let currentPrioritizationReport = null;
+let selectedSegmentationModelId = null;
+let segmentationScatterRequestId = 0;
+let selectedSegmentationScatterCluster = null;
 let currentUser = null;
 let alertItems = [];
 
@@ -181,6 +184,7 @@ function showView(name) {
   if (name === "entrenamiento") {
     loadModels();
     loadConsistencyReport();
+    loadSegmentationModels();
     refreshAlertBadge();
   }
   if (name === "alertas") loadAlerts();
@@ -638,6 +642,297 @@ async function loadConsistencyReport() {
     renderConsistencyReport(report);
   } catch (cause) {
     setNotice("consistencyTrainingMessage", cause.message, "error");
+  }
+}
+
+async function loadSegmentationModels() {
+  const history = $("segmentationHistory");
+  history.replaceChildren(modelTableMessage("Cargando segmentaciones…", 7));
+  try {
+    const [options, page] = await Promise.all([
+      api("/segmentation/options"), api("/segmentation/models"),
+    ]);
+    const capture = options.captura;
+    const permittedClusters = new Set(options.segmentos_permitidos || []);
+    const clusterSelect = $("segmentationK");
+    [...clusterSelect.options].forEach((option) => {
+      option.disabled = !permittedClusters.has(Number(option.value));
+    });
+    if (clusterSelect.selectedOptions[0]?.disabled && permittedClusters.size) {
+      clusterSelect.value = String(Math.min(...permittedClusters));
+    }
+    $("segmentationOptionsSummary").textContent = capture
+      ? `Captura semana ${capture.semana} · ${options.perfiles_disponibles} disponibles · ${options.perfiles_elegibles} elegibles para el análisis. Variables: edad, tamaño, energía y condición especial.`
+      : "Importa una captura completa antes de entrenar K-Means.";
+    $("trainSegmentationButton").disabled = options.estado !== "listo";
+    renderSegmentationModels(page.items || []);
+  } catch (cause) {
+    history.replaceChildren(modelTableMessage("No se pudo cargar el historial de segmentación.", 7));
+    $("segmentationOptionsSummary").textContent = cause.message;
+    $("trainSegmentationButton").disabled = true;
+  }
+}
+
+function renderSegmentationModels(models) {
+  const active = models.find((model) => model.es_vigente);
+  const selected = models.find((model) => model.id_modelo_segmentacion === selectedSegmentationModelId) || active;
+  const title = $("segmentationModelTitle");
+  const status = $("segmentationModelStatus");
+  const summary = $("segmentationModelSummary");
+  const cards = $("segmentationClusterSummaries");
+  cards.replaceChildren();
+  if (!selected) {
+    title.textContent = "Segmentación vigente";
+    status.textContent = "Sin modelo";
+    status.className = "tag neutral";
+    summary.textContent = "Entrena una versión K-Means para descubrir grupos dentro de los perfiles desfavorecidos.";
+  } else {
+    const isActive = Boolean(selected.es_vigente);
+    title.textContent = `${isActive ? "Segmentación vigente" : "Detalle de versión"} · K-Means ${selected.version}`;
+    status.textContent = isActive ? "Vigente" : selected.estado === "candidato" ? "Pendiente de activar" : "Anterior";
+    status.className = `tag ${isActive ? "success" : "neutral"}`;
+    summary.textContent = `${selected.cantidad_perfiles} perfiles · ${selected.cantidad_clusters} segmentos · silhouette ${Number(selected.silhouette_score).toFixed(3)} · captura semana ${selected.semana_referencia} · ${formatReportDate(selected.fecha_entrenamiento)}.`;
+    (selected.resumen_clusters || []).forEach((cluster) => {
+      const card = document.createElement("div");
+      card.className = "segmentation-cluster-card";
+      const heading = document.createElement("strong");
+      heading.textContent = `${cluster.nombre}: ${cluster.cantidad_perfiles} perfiles`;
+      const details = document.createElement("span");
+      const age = cluster.edad_mediana_meses === null ? "edad mediana no disponible" : `edad mediana ${cluster.edad_mediana_meses} meses`;
+      details.textContent = `Tamaño frecuente: ${cluster.tamano_frecuente} · Energía frecuente: ${cluster.energia_frecuente} · ${age} · edades estimadas: ${cluster.edades_estimadas} · edades no indicadas: ${cluster.edades_no_indicadas}`;
+      card.append(heading, details);
+      cards.append(card);
+    });
+  }
+
+  const scatterCard = $("segmentationScatterCard");
+  if (selected) {
+    scatterCard.hidden = false;
+    void loadSegmentationScatter(selected.id_modelo_segmentacion);
+  } else {
+    // Invalida cualquier solicitud anterior si ya no hay un modelo que mostrar.
+    segmentationScatterRequestId += 1;
+    scatterCard.hidden = true;
+  }
+
+  const body = $("segmentationHistory");
+  body.replaceChildren();
+  if (!models.length) body.append(modelTableMessage("Todavía no hay modelos de segmentación.", 7));
+  models.forEach((model) => {
+    const row = document.createElement("tr");
+    appendTextCell(row, model.version);
+    appendTextCell(row, `Semana ${model.semana_referencia} · ${formatCaptureDate(model.fecha_captura_referencia)}`);
+    appendTextCell(row, String(model.cantidad_perfiles), "num");
+    appendTextCell(row, String(model.cantidad_clusters), "num");
+    appendTextCell(row, Number(model.silhouette_score).toFixed(3), "num");
+    appendTextCell(row, model.es_vigente ? "Vigente" : model.estado === "candidato" ? "Pendiente de activar" : "Anterior");
+    const action = document.createElement("td");
+    const view = document.createElement("button");
+    view.type = "button";
+    view.dataset.segmentationView = String(model.id_modelo_segmentacion);
+    view.textContent = "Ver";
+    action.append(view);
+    if (model.estado === "candidato") {
+      const activate = document.createElement("button");
+      activate.type = "button";
+      activate.className = "primary";
+      activate.dataset.segmentationActivate = String(model.id_modelo_segmentacion);
+      activate.textContent = "Activar";
+      action.append(activate);
+    }
+    if (model.es_vigente) {
+      const refresh = document.createElement("button");
+      refresh.type = "button";
+      refresh.dataset.segmentationRefresh = "true";
+      refresh.textContent = "Actualizar captura";
+      action.append(refresh);
+    }
+    row.append(action);
+    body.append(row);
+  });
+}
+
+async function loadSegmentationScatter(modelId) {
+  const requestId = ++segmentationScatterRequestId;
+  const host = $("segmentationScatter");
+  const legend = $("segmentationScatterLegend");
+  host.textContent = "Cargando gráfico…";
+  legend.replaceChildren();
+  selectedSegmentationScatterCluster = null;
+  $("segmentationScatterNote").textContent = "Preparando la proyección de los perfiles de esta versión…";
+  try {
+    const plot = await api(`/segmentation/models/${encodeURIComponent(modelId)}/scatter`);
+    if (requestId !== segmentationScatterRequestId) return;
+    renderSegmentationScatter(plot);
+  } catch (cause) {
+    if (requestId !== segmentationScatterRequestId) return;
+    host.textContent = cause.message || "No se pudo cargar el gráfico de dispersión.";
+    $("segmentationScatterNote").textContent = "No se pudo preparar la proyección de esta versión.";
+  }
+}
+
+function renderSegmentationScatter(plot) {
+  const host = $("segmentationScatter");
+  const legend = $("segmentationScatterLegend");
+  host.replaceChildren();
+  legend.replaceChildren();
+  const points = plot.points || [];
+  if (!points.length) {
+    host.textContent = "Esta versión no tiene perfiles para graficar.";
+    $("segmentationScatterNote").textContent = "No hay perfiles asignados a esta versión.";
+    return;
+  }
+
+  // El SVG es nativo para evitar añadir una librería de gráficos al frontend.
+  const svgNs = "http://www.w3.org/2000/svg";
+  const makeSvgElement = (name, attributes = {}) => {
+    const element = document.createElementNS(svgNs, name);
+    Object.entries(attributes).forEach(([key, value]) => element.setAttribute(key, String(value)));
+    return element;
+  };
+  const width = 760;
+  const height = 430;
+  const plotArea = { left: 72, right: 735, top: 24, bottom: 350 };
+  const svg = makeSvgElement("svg", {
+    viewBox: `0 0 ${width} ${height}`,
+    role: "img",
+    "aria-label": `Dispersión de ${points.length} perfiles agrupados por K-Means, versión ${plot.version}`,
+    class: "segmentation-scatter-svg",
+  });
+  const title = makeSvgElement("title");
+  title.textContent = `Segmentos de K-Means ${plot.version}`;
+  svg.append(title);
+
+  const xValues = points.map((point) => Number(point.x));
+  const yValues = points.map((point) => Number(point.y));
+  const xMin = Math.min(...xValues);
+  const xMax = Math.max(...xValues);
+  const yMin = Math.min(...yValues);
+  const yMax = Math.max(...yValues);
+  const xRange = xMax - xMin || 1;
+  const yRange = yMax - yMin || 1;
+  const x = (value) => plotArea.left + ((Number(value) - xMin) / xRange) * (plotArea.right - plotArea.left);
+  const y = (value) => plotArea.bottom - ((Number(value) - yMin) / yRange) * (plotArea.bottom - plotArea.top);
+  const tickValue = (value) => Math.abs(Number(value)) < 0.05 ? "0" : Number(value).toFixed(1);
+
+  // Las marcas numéricas muestran la escala de las coordenadas PCA de cada punto.
+  for (let index = 0; index <= 4; index += 1) {
+    const gridX = plotArea.left + ((plotArea.right - plotArea.left) * index) / 4;
+    const gridY = plotArea.top + ((plotArea.bottom - plotArea.top) * index) / 4;
+    const valueX = xMin + (xRange * index) / 4;
+    const valueY = yMax - (yRange * index) / 4;
+    svg.append(makeSvgElement("line", { x1: gridX, y1: plotArea.top, x2: gridX, y2: plotArea.bottom, class: "segmentation-scatter-grid" }));
+    svg.append(makeSvgElement("line", { x1: plotArea.left, y1: gridY, x2: plotArea.right, y2: gridY, class: "segmentation-scatter-grid" }));
+    const xTick = makeSvgElement("text", { x: gridX, y: plotArea.bottom + 20, "text-anchor": "middle", class: "segmentation-scatter-tick" });
+    xTick.textContent = tickValue(valueX);
+    const yTick = makeSvgElement("text", { x: plotArea.left - 9, y: gridY + 4, "text-anchor": "end", class: "segmentation-scatter-tick" });
+    yTick.textContent = tickValue(valueY);
+    svg.append(xTick, yTick);
+  }
+  svg.append(makeSvgElement("line", { x1: plotArea.left, y1: plotArea.bottom, x2: plotArea.right, y2: plotArea.bottom, class: "segmentation-scatter-axis" }));
+  svg.append(makeSvgElement("line", { x1: plotArea.left, y1: plotArea.top, x2: plotArea.left, y2: plotArea.bottom, class: "segmentation-scatter-axis" }));
+
+  const variance = plot.explained_variance_ratio || [];
+  const firstVariance = Number(variance[0] || 0) * 100;
+  const secondVariance = Number(variance[1] || 0) * 100;
+  const combinedVariance = firstVariance + secondVariance;
+  $("segmentationScatterNote").textContent = `La vista 2D resume ${combinedVariance.toFixed(1)} % de la variación (PC1: ${firstVariance.toFixed(1)} %; PC2: ${secondVariance.toFixed(1)} %). Cada punto es un perfil; el gráfico proyecta las variables para mostrarlas, mientras K-Means agrupa usando todas las variables. Selecciona un segmento en la leyenda para enfocarlo; vuelve a pulsarlo para mostrar todos.`;
+  const xLabel = makeSvgElement("text", { x: (plotArea.left + plotArea.right) / 2, y: 405, "text-anchor": "middle", class: "segmentation-scatter-label" });
+  xLabel.textContent = `Componente principal 1 (${firstVariance.toFixed(1)} %)`;
+  const yLabel = makeSvgElement("text", { x: 18, y: (plotArea.top + plotArea.bottom) / 2, transform: `rotate(-90 18 ${(plotArea.top + plotArea.bottom) / 2})`, "text-anchor": "middle", class: "segmentation-scatter-label" });
+  yLabel.textContent = `Componente principal 2 (${secondVariance.toFixed(1)} %)`;
+  svg.append(xLabel, yLabel);
+
+  const counts = new Map();
+  points.forEach((point) => {
+    const cluster = Number(point.numero_segmento);
+    counts.set(cluster, (counts.get(cluster) || 0) + 1);
+    const circle = makeSvgElement("circle", {
+      cx: x(point.x), cy: y(point.y), r: 6,
+      class: `segmentation-scatter-point cluster-${cluster}`,
+      "data-point-cluster": cluster,
+      tabindex: "0",
+      "aria-label": `${point.sku} ${point.nombre}, segmento ${cluster}, PC1 ${tickValue(point.x)}, PC2 ${tickValue(point.y)}`,
+    });
+    const tooltip = makeSvgElement("title");
+    tooltip.textContent = `${point.sku} · ${point.nombre} · Segmento ${cluster} · PC1 ${tickValue(point.x)} · PC2 ${tickValue(point.y)}`;
+    circle.append(tooltip);
+    svg.append(circle);
+  });
+  host.append(svg);
+
+  [...counts.entries()].sort(([left], [right]) => left - right).forEach(([cluster, count]) => {
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = "segmentation-legend-item";
+    item.dataset.scatterCluster = String(cluster);
+    item.setAttribute("aria-pressed", "false");
+    item.title = "Enfocar este segmento; vuelve a pulsar para mostrar todos";
+    const swatch = document.createElement("span");
+    swatch.className = `segmentation-legend-swatch cluster-${cluster}`;
+    swatch.setAttribute("aria-hidden", "true");
+    const label = document.createElement("span");
+    label.textContent = `Segmento ${cluster} · ${count} perfiles`;
+    item.append(swatch, label);
+    legend.append(item);
+  });
+}
+
+// La leyenda permite enfocar un grupo sin eliminar perfiles del gráfico.
+function applySegmentationScatterFilter(cluster) {
+  selectedSegmentationScatterCluster = cluster;
+  document.querySelectorAll("[data-point-cluster]").forEach((point) => {
+    point.classList.toggle("is-filtered", cluster !== null && point.dataset.pointCluster !== String(cluster));
+  });
+  document.querySelectorAll("[data-scatter-cluster]").forEach((button) => {
+    button.setAttribute("aria-pressed", String(Number(button.dataset.scatterCluster) === cluster));
+  });
+}
+
+async function trainSegmentationModel() {
+  const button = $("trainSegmentationButton");
+  button.disabled = true;
+  setNotice("segmentationMessage", "Entrenando y evaluando agrupaciones…", "loading");
+  try {
+    const candidate = await api("/segmentation/models/train", {
+      method: "POST", body: JSON.stringify({ cantidad_clusters: Number($("segmentationK").value) }),
+    });
+    selectedSegmentationModelId = candidate.id_modelo_segmentacion;
+    await loadSegmentationModels();
+    setNotice("segmentationMessage", `K-Means ${candidate.version} listo. Silhouette ${Number(candidate.silhouette_score).toFixed(3)}; revísalo y actívalo si los grupos te resultan útiles.`, "success");
+  } catch (cause) {
+    setNotice("segmentationMessage", cause.message, "error");
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function activateSegmentationModel(modelId, button) {
+  button.disabled = true;
+  setNotice("segmentationMessage", "Aplicando K-Means a la captura vigente…", "loading");
+  try {
+    const result = await api(`/segmentation/models/${encodeURIComponent(modelId)}/activate`, { method: "POST" });
+    selectedSegmentationModelId = result.id_modelo_segmentacion;
+    await loadSegmentationModels();
+    setNotice("segmentationMessage", `Segmentación ${result.version} activada para ${result.asignaciones_actualizadas} perfiles de la semana ${result.semana_aplicada}.`, "success");
+  } catch (cause) {
+    setNotice("segmentationMessage", cause.message, "error");
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function refreshSegmentationModel(button) {
+  button.disabled = true;
+  setNotice("segmentationMessage", "Actualizando segmentos para la última captura…", "loading");
+  try {
+    const result = await api("/segmentation/models/current/refresh", { method: "POST" });
+    await Promise.all([loadSegmentationModels(), loadPrioritizationReport()]);
+    setNotice("segmentationMessage", `Se actualizaron ${result.asignaciones_actualizadas} perfiles en la semana ${result.semana_aplicada}.`, "success");
+  } catch (cause) {
+    setNotice("segmentationMessage", cause.message, "error");
+  } finally {
+    button.disabled = false;
   }
 }
 
@@ -1371,10 +1666,12 @@ async function loadPrioritizationReport() {
   $("reportLead").textContent = "Cargando la última captura y las predicciones del modelo vigente…";
   $("reportEmpty").hidden = true;
   $("reportChartCard").hidden = true;
-  $("reportDisadvantagedSummary").hidden = true;
+  $("reportOe3Summary").hidden = true;
+  $("reportOe3Toolbar").hidden = true;
+  $("reportOe3TableCard").hidden = true;
   $("reportToolbar").hidden = true;
   $("reportTotal").textContent = "";
-  body.replaceChildren(modelTableMessage("Cargando reporte…", 11));
+  body.replaceChildren(modelTableMessage("Cargando reporte…", 10));
   setNotice("reportMessage");
   try {
     const report = await api("/reports/current");
@@ -1382,34 +1679,38 @@ async function loadPrioritizationReport() {
       $("reportLead").textContent = "El reporte semanal aún no está disponible.";
       $("reportEmpty").textContent = report.mensaje || "No hay información para mostrar.";
       $("reportEmpty").hidden = false;
-      body.replaceChildren(modelTableMessage(report.mensaje || "No hay datos para mostrar.", 11));
+      body.replaceChildren(modelTableMessage(report.mensaje || "No hay datos para mostrar.", 10));
+      // Mantiene visible la sección OE3 incluso antes de importar la primera captura.
+      if (report.estado === "sin_capturas") {
+        renderOe3Report({ estado: "sin_capturas", total: 0, segmentos: [], items: [] });
+      }
       return;
     }
     currentPrioritizationReport = report;
-    $("reportLead").textContent = `Semana ${report.semana} · captura ${formatCaptureDate(report.fecha_captura)} · ${report.total} mascotas disponibles · modelo ${report.modelo_version}.`;
+    $("reportLead").textContent = `Semana ${report.semana} · captura ${formatCaptureDate(report.fecha_captura)} · ${report.total} mascotas disponibles.`;
     $("reportTotal").textContent = `${report.total} registros`;
     renderPrioritizationChart(report.prioridades, report.total);
     $("reportChartCard").hidden = false;
-    renderDisadvantagedSummary(report.segmentacion_desfavorecidas);
     $("reportToolbar").hidden = false;
     renderPrioritizationRows(report.items);
+    renderOe3Report(report.oe3 || {});
   } catch (cause) {
     $("reportLead").textContent = "No se pudo cargar el reporte semanal.";
     $("reportEmpty").textContent = cause.message;
     $("reportEmpty").hidden = false;
-    body.replaceChildren(modelTableMessage("No se pudo cargar el reporte.", 11));
+    body.replaceChildren(modelTableMessage("No se pudo cargar el reporte.", 10));
     setNotice("reportMessage", cause.message, "error");
   }
 }
 
 async function loadPrioritizationHistory() {
   const body = $("reportHistoryRows");
-  body.replaceChildren(modelTableMessage("Cargando historial…", 7));
+  body.replaceChildren(modelTableMessage("Cargando historial…", 9));
   try {
     const result = await api("/reports/history");
     renderPrioritizationHistory(result.items || []);
   } catch (cause) {
-    body.replaceChildren(modelTableMessage("No se pudo cargar el historial de reportes.", 7));
+    body.replaceChildren(modelTableMessage("No se pudo cargar el historial de reportes.", 9));
     setNotice("reportHistory", cause.message, "error");
   }
 }
@@ -1418,7 +1719,7 @@ function renderPrioritizationHistory(items) {
   const body = $("reportHistoryRows");
   body.replaceChildren();
   if (!items.length) {
-    body.replaceChildren(modelTableMessage("Aún no hay reportes guardados. Exporta el reporte actual como PDF o Excel para registrarlo aquí.", 7));
+    body.replaceChildren(modelTableMessage("Aún no hay reportes guardados. Exporta el reporte actual como PDF o Excel para registrarlo aquí.", 9));
     return;
   }
   items.forEach((report) => {
@@ -1426,8 +1727,10 @@ function renderPrioritizationHistory(items) {
     appendTextCell(row, formatReportDate(report.fecha_generacion));
     appendTextCell(row, `Semana ${report.semana}`);
     appendTextCell(row, report.modelo_version);
+    appendTextCell(row, report.segmentacion_version || "—");
+    appendTextCell(row, String(report.total_oe1 || 0), "num");
+    appendTextCell(row, String(report.total_oe3 || 0), "num");
     appendTextCell(row, String(report.formato).toUpperCase());
-    appendTextCell(row, String(report.total), "num");
     appendTextCell(row, report.usuario || "—");
     const action = document.createElement("td");
     const button = document.createElement("button");
@@ -1493,9 +1796,6 @@ function renderPrioritizationRows(items) {
     row.dataset.reportPet = "true";
     row.dataset.search = normalizeCatalogSearch(`${pet.sku} ${pet.nombre}`);
     row.dataset.priority = String(pet.nivel_prioridad || "").toLocaleLowerCase("es-PE");
-    const criteria = pet.criterios_desfavorecidos || [];
-    row.dataset.disadvantagedCriteria = criteria.map((criterion) => criterion.codigo).join(" ");
-    row.dataset.disadvantaged = String(Boolean(pet.es_desfavorecida));
     appendTextCell(row, pet.sku);
     appendTextCell(row, pet.nombre);
     appendTextCell(row, pet.especie);
@@ -1512,9 +1812,6 @@ function renderPrioritizationRows(items) {
     priorityTag.textContent = pet.nivel_prioridad;
     priorityCell.append(priorityTag);
     row.append(priorityCell);
-    const criteriaLabels = criteria.map((criterion) => `${criterion.nombre}${criterion.estimado ? " (est.)" : ""}`);
-    if (pet.edad_desconocida) criteriaLabels.push("Edad no indicada");
-    appendTextCell(row, criteriaLabels.length ? criteriaLabels.join(" · ") : "Ninguno", "wrap");
     body.append(row);
   });
   applyPrioritizationFilters();
@@ -1525,34 +1822,109 @@ function applyPrioritizationFilters() {
   const rows = [...body.querySelectorAll("tr[data-report-pet]")];
   const query = normalizeCatalogSearch($("reportSearch").value.trim());
   const priority = $("reportPriorityFilter").value;
-  const disadvantaged = $("reportDisadvantagedFilter").value;
   body.querySelector("#reportNoMatches")?.remove();
   let visible = 0;
   rows.forEach((row) => {
     const matches = (!query || row.dataset.search.includes(query))
-      && (!priority || row.dataset.priority === priority)
-      && (!disadvantaged
-        || (disadvantaged === "ninguno" ? row.dataset.disadvantaged === "false"
-          : row.dataset.disadvantagedCriteria.split(" ").includes(disadvantaged)));
+      && (!priority || row.dataset.priority === priority);
     row.hidden = !matches;
     if (matches) visible += 1;
   });
   $("reportFilterCount").textContent = `Mostrando ${visible} de ${rows.length}`;
   if (rows.length && visible === 0) {
-    const empty = modelTableMessage("No hay mascotas que coincidan con los filtros.", 11);
+    const empty = modelTableMessage("No hay mascotas que coincidan con los filtros.", 10);
     empty.id = "reportNoMatches";
     body.append(empty);
   }
 }
 
-function renderDisadvantagedSummary(summary = {}) {
-  const counts = summary.por_criterio || {};
-  $("reportDisadvantagedTotal").textContent = `${Number(summary.total_desfavorecidas) || 0} de ${currentPrioritizationReport.total} perfiles`;
-  $("reportSeniorCount").textContent = String(Number(counts.edad_avanzada) || 0);
-  $("reportLargeCount").textContent = String(Number(counts.tamano_grande) || 0);
-  $("reportSpecialCount").textContent = String(Number(counts.condicion_especial) || 0);
-  $("reportUnknownAgeCount").textContent = String(Number(summary.edades_no_indicadas) || 0);
-  $("reportDisadvantagedSummary").hidden = false;
+function renderOe3Report(oe3) {
+  const summaries = oe3.segmentos || [];
+  const items = oe3.items || [];
+  $("reportOe3Summary").hidden = false;
+  $("reportOe3SummaryMeta").textContent = oe3.modelo_version
+    ? `K-Means ${oe3.modelo_version} · ${Number(oe3.total) || 0} perfiles elegibles`
+    : `${Number(oe3.total) || 0} perfiles elegibles`;
+  const messages = {
+    sin_capturas: "Importa una captura completa para listar los perfiles elegibles de OE3.",
+    sin_modelo: "Entrena y activa K-Means desde la sección de entrenamiento para ver los segmentos.",
+    pendiente_actualizacion: "La captura cambió. El Analista debe actualizar los segmentos antes de incluirlos en un reporte.",
+  };
+  $("reportOe3State").textContent = messages[oe3.estado]
+    || (Number.isFinite(Number(oe3.silhouette_score))
+      ? `Agrupación por atributos del perfil · silhouette ${Number(oe3.silhouette_score).toFixed(3)}.`
+      : "Agrupación por atributos del perfil.");
+  const summaryHost = $("reportOe3Clusters");
+  summaryHost.replaceChildren();
+  summaries.forEach((summary) => {
+    const card = document.createElement("div");
+    card.className = "segmentation-cluster-card";
+    const title = document.createElement("strong");
+    title.textContent = `${summary.nombre}: ${summary.cantidad_perfiles} perfiles`;
+    const detail = document.createElement("span");
+    const age = summary.edad_mediana_meses === null ? "edad no indicada" : `edad mediana ${summary.edad_mediana_meses} meses`;
+    detail.textContent = `Tamaño frecuente: ${summary.tamano_frecuente} · Energía frecuente: ${summary.energia_frecuente} · ${age}`;
+    card.append(title, detail);
+    summaryHost.append(card);
+  });
+  $("reportOe3TableCard").hidden = false;
+  $("reportOe3Toolbar").hidden = items.length === 0;
+  $("reportOe3Total").textContent = `${items.length} perfiles`;
+  const select = $("reportOe3Filter");
+  select.replaceChildren(new Option("Todos", ""));
+  summaries.forEach((summary) => select.add(new Option(summary.nombre, String(summary.numero_segmento))));
+  renderOe3Rows(items, oe3.estado);
+}
+
+function renderOe3Rows(items, state = "") {
+  const body = $("reportOe3Rows");
+  body.replaceChildren();
+  if (!items.length) {
+    const message = state === "sin_capturas"
+      ? "Todavía no hay capturas completas para listar perfiles."
+      : state === "pendiente_actualizacion"
+      ? "No hay asignaciones para la última captura. Actualiza K-Means desde Entrenamiento."
+      : "Todavía no hay una segmentación OE3 aplicada a esta captura.";
+    body.append(modelTableMessage(message, 5));
+    $("reportOe3FilterCount").textContent = "";
+    return;
+  }
+  items.forEach((profile) => {
+    const row = document.createElement("tr");
+    row.dataset.oe3Profile = "true";
+    row.dataset.search = normalizeCatalogSearch(`${profile.sku} ${profile.nombre}`);
+    row.dataset.cluster = String(profile.numero_segmento);
+    const criteria = (profile.criterios_desfavorecidos || []).map((item) => `${item.nombre}${item.estimado ? " (est.)" : ""}`);
+    appendTextCell(row, profile.sku);
+    appendTextCell(row, profile.nombre);
+    appendTextCell(row, criteria.join(" · ") || "No identificado", "wrap");
+    appendTextCell(row, profile.segmento_nombre);
+    const summary = profile.segmento_resumen || {};
+    const age = summary.edad_mediana_meses === null ? "edad no indicada" : `mediana ${summary.edad_mediana_meses} meses`;
+    appendTextCell(row, `Tamaño ${summary.tamano_frecuente || "—"} · energía ${summary.energia_frecuente || "—"} · ${age}`, "wrap");
+    body.append(row);
+  });
+  applyOe3Filters();
+}
+
+function applyOe3Filters() {
+  const body = $("reportOe3Rows");
+  const rows = [...body.querySelectorAll("tr[data-oe3-profile]")];
+  const query = normalizeCatalogSearch($("reportOe3Search").value.trim());
+  const cluster = $("reportOe3Filter").value;
+  body.querySelector("#reportOe3NoMatches")?.remove();
+  let visible = 0;
+  rows.forEach((row) => {
+    const matches = (!query || row.dataset.search.includes(query)) && (!cluster || row.dataset.cluster === cluster);
+    row.hidden = !matches;
+    if (matches) visible += 1;
+  });
+  $("reportOe3FilterCount").textContent = `Mostrando ${visible} de ${rows.length}`;
+  if (rows.length && !visible) {
+    const empty = modelTableMessage("No hay perfiles que coincidan con los filtros.", 5);
+    empty.id = "reportOe3NoMatches";
+    body.append(empty);
+  }
 }
 
 async function exportPrioritizationReport(format) {
@@ -1597,9 +1969,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     tab.addEventListener("keydown", (event) => {
       if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
         event.preventDefault();
-        const next = tab.dataset.modelTab === "adoption" ? "consistency" : "adoption";
+        const tabs = [...document.querySelectorAll("[data-model-tab]")];
+        const currentIndex = tabs.indexOf(tab);
+        const step = event.key === "ArrowRight" ? 1 : -1;
+        const nextTab = tabs[(currentIndex + step + tabs.length) % tabs.length];
+        const next = nextTab.dataset.modelTab;
         selectModelTab(next);
-        $(next === "adoption" ? "adoptionTab" : "consistencyTab").focus();
+        nextTab.focus();
       }
     });
   });
@@ -1618,6 +1994,28 @@ document.addEventListener("DOMContentLoaded", async () => {
   $("generateDatasetButton").addEventListener("click", generateDataset);
   $("exportDatasetButton").addEventListener("click", exportDataset);
   $("trainModelButton").addEventListener("click", trainModel);
+  $("trainSegmentationButton").addEventListener("click", trainSegmentationModel);
+  $("segmentationHistory").addEventListener("click", (event) => {
+    const view = event.target.closest("button[data-segmentation-view]");
+    const activate = event.target.closest("button[data-segmentation-activate]");
+    const refresh = event.target.closest("button[data-segmentation-refresh]");
+    if (view) {
+      selectedSegmentationModelId = Number(view.dataset.segmentationView);
+      void api("/segmentation/models")
+        .then((page) => renderSegmentationModels(page.items || []))
+        .catch((cause) => setNotice("segmentationMessage", cause.message, "error"));
+    } else if (activate) {
+      activateSegmentationModel(Number(activate.dataset.segmentationActivate), activate);
+    } else if (refresh) {
+      refreshSegmentationModel(refresh);
+    }
+  });
+  $("segmentationScatterLegend").addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-scatter-cluster]");
+    if (!button) return;
+    const cluster = Number(button.dataset.scatterCluster);
+    applySegmentationScatterFilter(selectedSegmentationScatterCluster === cluster ? null : cluster);
+  });
   $("trainConsistencyButton").addEventListener("click", trainConsistencyModel);
   $("consistencyHistory").addEventListener("click", (event) => {
     const button = event.target.closest("button[data-consistency-model-id]");
@@ -1634,7 +2032,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   $("catalogPriorityFilter").addEventListener("change", applyCatalogFilters);
   $("reportSearch").addEventListener("input", applyPrioritizationFilters);
   $("reportPriorityFilter").addEventListener("change", applyPrioritizationFilters);
-  $("reportDisadvantagedFilter").addEventListener("change", applyPrioritizationFilters);
+  $("reportOe3Search").addEventListener("input", applyOe3Filters);
+  $("reportOe3Filter").addEventListener("change", applyOe3Filters);
   $("reportHistoryRows").addEventListener("click", (event) => {
     const button = event.target.closest("button[data-report-history-id]");
     if (button) downloadSavedReport(button.dataset.reportHistoryId, button.dataset.reportFormat, button);
@@ -1704,13 +2103,12 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 // Alterna los paneles de entrenamiento y mantiene accesible el estado activo.
 function selectModelTab(name) {
-  const adoption = name === "adoption";
-  $("adoptionPanel").hidden = !adoption;
-  $("consistencyPanel").hidden = adoption;
-  $("adoptionTab").classList.toggle("active", adoption);
-  $("consistencyTab").classList.toggle("active", !adoption);
-  $("adoptionTab").setAttribute("aria-selected", String(adoption));
-  $("consistencyTab").setAttribute("aria-selected", String(!adoption));
-  $("adoptionTab").tabIndex = adoption ? 0 : -1;
-  $("consistencyTab").tabIndex = adoption ? -1 : 0;
+  const panels = { adoption: "adoptionPanel", consistency: "consistencyPanel", segmentation: "segmentationPanel" };
+  document.querySelectorAll("[data-model-tab]").forEach((tab) => {
+    const active = tab.dataset.modelTab === name;
+    tab.classList.toggle("active", active);
+    tab.setAttribute("aria-selected", String(active));
+    tab.tabIndex = active ? 0 : -1;
+  });
+  Object.entries(panels).forEach(([key, panelId]) => { $(panelId).hidden = key !== name; });
 }

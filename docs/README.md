@@ -1,6 +1,6 @@
 # WUF Predict - documentación de arquitectura
 
-Este directorio convierte el avance académico y el prototipo navegable en una guía de implementación. El PDF es la fuente de requisitos, historias de usuario, modelo de datos y tecnologías; `../prototipo/` es referencia visual y de flujo. Para HU01, el Analista importa CSV manualmente como sustituto acordado de la extracción WUF. HU02 compara snapshots y deriva “Permanece / Salió del catálogo”; HU03 excluye las etiquetas indeterminadas sin modificar la exportación auditable. HU04 usa por ahora etiquetas demo para el árbol de consistencia y requiere verificaciones humanas antes de considerarlo validado. HU07 persiste y permite atender internamente alertas de prioridad alta de HU04; no confirma estados reales ni envía correo. HU05 genera reportes desde las predicciones vigentes y conserva cada exportación para auditoría.
+Este directorio convierte el avance académico y el prototipo navegable en una guía de implementación. El PDF es la fuente inicial de requisitos, historias de usuario, modelo de datos y tecnologías; `../prototipo/` guía lo visual y el flujo. Para HU01, el Analista importa CSV manualmente como sustituto acordado de la extracción WUF. HU02 compara snapshots y deriva “Permanece / Salió del catálogo”; HU03 entrena el Random Forest de OE1; HU04 usa etiquetas demo para el árbol de consistencia y requiere verificaciones humanas para una validación real; HU07 persiste la atención interna de alertas de HU04. HU06 usa K-Means para agrupar, por separado, los perfiles elegibles para OE3. HU05 entrega dos resultados separados: prioridad OE1 basada en el Random Forest y segmentos OE3 basados en K-Means; guarda cada exportación para auditoría.
 
 ## Documentos
 
@@ -15,7 +15,7 @@ Este directorio convierte el avance académico y el prototipo navegable en una g
 9. [HU03 — Entrenamiento y predicción](14-hu03-entrenamiento-modelo.md): preparación de datos, Random Forest, métricas, artefactos, migración y uso de la interfaz.
 10. [HU04 — Consistencia del catálogo](15-hu04-consistencia.md): DecisionTreeClassifier, etiquetas demo, métricas, diagrama del árbol, permisos y persistencia.
 11. [HU05 — Reporte semanal de priorización](16-hu05-reporte-priorizacion.md): flujo de datos, prioridades, vista, filtros, exportación, historial, permisos y límites actuales.
-12. [Guía de las tablas de la base de datos](17-guia-tablas-base-datos.md): explicación sencilla de las 19 tablas del esquema v5 y de sus relaciones.
+12. [Guía de las tablas de la base de datos](17-guia-tablas-base-datos.md): explicación sencilla de las 22 tablas del esquema v6 y de sus relaciones.
 13. [HU08 — Enfoque de indicadores estratégicos](18-enfoque-hu08-indicadores.md): alcance de simulación, relación de OE1–OE3 con los módulos, fórmulas candidatas y pendientes antes del dashboard.
 
 ## Convenciones
@@ -25,7 +25,7 @@ Este directorio convierte el avance académico y el prototipo navegable en una g
 - El prototipo guía la estructura visual, la navegación y el flujo esperado; sus cifras y registros estáticos son de muestra. Los datos funcionales se consultan desde PostgreSQL.
 - El backend obtiene la fecha de captura del nombre validado del CSV, calcula semana ISO y audita aparte el momento de importación.
 - La salida del catálogo que HU02 deriva comparando snapshots es una etiqueta proxy y no confirma adopción real.
-- `wuf_predict_v6` conserva el esquema v4 anterior. Para ejecutar el código HU07 crea una base limpia `wuf_predict_v7` e instala [`../backend/schema_wuf_predict_v5.sql`](../backend/schema_wuf_predict_v5.sql); no ejecutes este instalador sobre la base anterior. Para las pruebas usa los CSV de [`../data/capturas/escenario_hu02_variable_v4/README.md`](../data/capturas/escenario_hu02_variable_v4/README.md); los archivos v3 se conservan para reproducibilidad. Los CSV y etiquetas son sintéticos y no representan adopciones ni verificaciones reales.
+- `wuf_predict_v7` es la base usada por el código anterior y no se modifica. Para el código actual crea una base limpia `wuf_predict_v8` e instala [`../backend/schema_wuf_predict_v6.sql`](../backend/schema_wuf_predict_v6.sql); no ejecutes este instalador sobre la base anterior. Para las pruebas usa los CSV de [`../data/capturas/escenario_hu02_variable_v4/README.md`](../data/capturas/escenario_hu02_variable_v4/README.md). Los CSV y etiquetas son sintéticos y no representan adopciones ni verificaciones reales.
 
 ## Orden de lectura
 

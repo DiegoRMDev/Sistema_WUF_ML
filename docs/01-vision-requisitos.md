@@ -12,7 +12,9 @@ El avance describe un proceso reactivo, sin criterio basado en datos para destac
 |---|---|---|
 | OE1: priorizar la difusión de mascotas con baja probabilidad de adopción | Aumento de 25% | Clasificación supervisada, Random Forest |
 | OE2: mejorar la exactitud del estado del catálogo | 98% | Clasificación supervisada, árbol de decisión |
-| OE3: elevar adopciones de perfiles históricamente desfavorecidos | Incremento de 15% | Clasificación supervisada, Random Forest |
+| OE3: identificar segmentos de perfiles desfavorecidos para orientar acciones de difusión diferenciadas | Cantidad y composición de segmentos encontrados en cada captura; sin meta porcentual de adopciones | Aprendizaje no supervisado, K-Means |
+
+**Decisión posterior para OE3:** se reemplaza el KPI de incremento de adopciones del documento inicial. Ese efecto no puede medirse con los CSV simulados ni sin observar campañas y adopciones reales. La nueva formulación conserva el problema de negocio —apoyar una difusión más focalizada— y define un resultado analítico distinto al de OE1: grupos de perfiles semejantes, sin una segunda probabilidad de adopción.
 
 El avance informa una prueba de viabilidad con 189 registros: Random Forest con accuracy 84,2%, precision 73,7%, recall 93,3%, F1 82,3% y 76,7% en validación cruzada de cinco particiones; árbol para riesgo con accuracy 89,5%. Son resultados reportados para el dataset de referencia, no garantías de desempeño futuro. Para publicar un modelo, el requisito HU03 fija un umbral mínimo configurable, con valor de demostración de 75% en el prototipo.
 
@@ -41,7 +43,7 @@ La tabla refleja navegación documentada en el PDF/prototipo; los permisos de op
 | HU03 | Analista entrena clasificador de adopción | Registra Accuracy, Precision, Recall, F1; publica solo si supera umbral | S2 |
 | HU04 | Área de Ayuda valida consistencia | Cada perfil tiene riesgo; lista casos altos con justificación | S2 |
 | HU05 | Marketing genera reporte semanal | Se genera semanalmente, ordenado por prioridad, exportable | S3 |
-| HU06 | Marketing identifica perfiles desfavorecidos | Segmenta según edad, tamaño y condición especial | S3 |
+| HU06 | Marketing consulta segmentos de perfiles desfavorecidos | K-Means agrupa los perfiles elegibles por edad, tamaño, condición especial y energía; se muestran los atributos del grupo, sin probabilidad de adopción | S3 |
 | HU07 | Área de Ayuda recibe alertas | Bandeja interna con mascota, días sin cambio observado y prioridad; permite registrar atención | S3 |
 | HU08 | Marketing consulta KPI | Tres KPI con meta/evolución y actualización por ejecución | S4 |
 | HU09 | Scrum Master documenta y entrega sistema | Manual técnico, manual de usuario y registro de pruebas con resultados | S4 |
@@ -61,7 +63,7 @@ Los sprints son de tres semanas, salvo S4 de cuatro semanas; el plan abarca sema
 | RF07 | Evaluar riesgo de estado publicado obsoleto mediante árbol | HU04 | Alta |
 | RF08 | Notificar dentro del sistema los perfiles de alta prioridad al Área de Ayuda | HU07 | Media |
 | RF09 | Producir reporte semanal ordenado, exportable a PDF o Excel | HU05 | Media |
-| RF10 | Segmentar perfiles desfavorecidos: edad avanzada, tamaño grande, etiquetas de condición | HU06 | Media |
+| RF10 | Aplicar K-Means a perfiles elegibles según edad, tamaño, condición especial y energía; conservar los criterios HU06 y excluir especie e identificadores del modelo | HU06 | Media |
 | RF11 | Mostrar KPI OE1-OE3, meta y evolución | HU08 | Media |
 | RF12 | Autenticar usuarios y restringir funciones según rol | HU08, HU09 | Baja |
 
@@ -85,7 +87,7 @@ Para HU02 el prototipo de Dataset Histórico muestra observaciones por semana y 
 2. **Semántica de estados:** siguiendo las filas del prototipo y RF03, el estado final `disponible` se etiqueta `Permanece`; `no_disponible` se etiqueta `Salió del catálogo` como proxy. Un perfil ausente en una captura completa también puede representar salida; `sin_publicar`, capturas parciales o evidencia insuficiente se marcan indeterminadas. La etiqueta proxy no demuestra adopción.
 3. **Fechas y semanas:** la fecha de captura corresponde al periodo representado por el CSV y se lee del patrón validado del nombre (`captura_AAAA-MM-DD.csv` o `captura_demo_AAAA-MM-DD.csv`). La semana mostrada se deriva con calendario ISO; inicio/fin de ejecución conservan el momento de importación. No se usa la hora de importación para simular semanas históricas.
 4. **Identidad:** SKU identifica el mismo perfil a través de capturas y debe mantenerse estable en los CSV. Su reutilización para otra mascota invalida la comparación temporal.
-5. **OE1/OE3:** el avance no define fórmula, denominador, periodo base ni fuente de adopciones efectivas. Formalizar KPI antes de tratarlos como métricas operativas. Una etiqueta proxy de salida del catálogo no es una tasa verificada de adopción.
+5. **OE1/OE3:** OE1 mantiene su estimación proxy de salida del catálogo. OE3 se redefine como análisis de grupos con K-Means; no es una segunda probabilidad ni una medición del aumento de adopciones.
 6. **OE2:** distinguir accuracy del clasificador de riesgo y exactitud observada del catálogo. Definir fuente de “estado real” y matriz de evaluación.
 7. **Probabilidad/prioridad (HU03):** la interfaz usa el término “Probabilidad estimada de adopción”, pero metodológicamente se calcula con la clase `salio_catalogo` derivada en HU02. Es un indicador indirecto, no una adopción confirmada; se informa sin calibración. Menor probabilidad estimada recibe prioridad de difusión más alta. Los cortes de prioridad se configuran por entorno.
 8. **Condiciones y edades:** acordar etiquetas canónicas, umbral de “edad avanzada” y manejo de edades estimadas. No inferir umbrales del contenido ilustrativo del prototipo.

@@ -115,6 +115,14 @@ class ConsistencyTrainingRequest(BaseModel):
         return value
 
 
+class SegmentationTrainingRequest(BaseModel):
+    """K acotado para que el Analista pruebe segmentos sin cambiar datos del origen."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    cantidad_clusters: int = Field(ge=2, le=5)
+
+
 class AlertAttentionRequest(BaseModel):
     """Cambio de estado solicitado por Área de Ayuda con nota de revisión."""
 

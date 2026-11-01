@@ -106,7 +106,7 @@ Actualmente hay `docs/`, `prototipo/`, `frontend/public/`, `backend/app/` (api, 
 
 ## Esquema v2/v3/v4 para HU02, HU03, HU04 y el prototipo
 
-Para HU02 se preparó [`../backend/schema_wuf_predict_v2.sql`](../backend/schema_wuf_predict_v2.sql), derivado del diccionario físico original. El instalador v4 creó HU01–HU04 en la base anterior `wuf_predict_v6`; el instalador limpio [`../backend/schema_wuf_predict_v5.sql`](../backend/schema_wuf_predict_v5.sql) integra ahora HU01–HU07 y debe ejecutarse en una base nueva, sugerida `wuf_predict_v7`. Ningún instalador elimina bases y los scripts `upgrade_*.sql` son solo para instalaciones históricas. Configura `DATABASE_URL` con la base que corresponda al código actual.
+Para HU02 se preparó [`../backend/schema_wuf_predict_v2.sql`](../backend/schema_wuf_predict_v2.sql), derivado del diccionario físico original. El instalador v4 creó HU01–HU04 en la base anterior `wuf_predict_v6`; el instalador limpio [`../backend/schema_wuf_predict_v6.sql`](../backend/schema_wuf_predict_v6.sql) integra ahora HU01–HU07 y K-Means para OE3 y debe ejecutarse en una base nueva, sugerida `wuf_predict_v8`. Ningún instalador elimina bases y los scripts `upgrade_*.sql` son solo para instalaciones históricas. Configura `DATABASE_URL` con la base que corresponda al código actual.
 
 El backend de HU01 valida la fecha desde el nombre del archivo, y el guardado comprueba mascota/SKU/snapshot/ejecución. HU02 requiere el esquema v2 completo, genera la cohorte de mascotas disponibles al inicio y persiste snapshots, ejecuciones fuente, etiquetas y hash. Consulta [`13-hu02-dataset-historico.md`](13-hu02-dataset-historico.md).
 
