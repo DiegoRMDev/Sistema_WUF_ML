@@ -26,6 +26,42 @@ class UserResponse(BaseModel):
     rol: str
 
 
+class ProfileUpdateRequest(BaseModel):
+    """Permite editar solo el nombre visible del usuario autenticado."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    nombre: str = Field(min_length=1, max_length=100)
+
+    @field_validator("nombre")
+    @classmethod
+    def clean_name(cls, value: str) -> str:
+        cleaned = value.strip()
+        if not cleaned:
+            raise ValueError("El nombre no puede estar vacío.")
+        if any(ord(character) < 32 for character in cleaned):
+            raise ValueError("El nombre contiene caracteres de control no permitidos.")
+        return cleaned
+
+
+class PasswordChangeRequest(BaseModel):
+    """Verifica la contraseña actual y exige confirmación de la nueva."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    current_password: str = Field(min_length=1, max_length=256)
+    new_password: str = Field(min_length=8, max_length=256)
+    confirm_password: str = Field(min_length=8, max_length=256)
+
+    @model_validator(mode="after")
+    def passwords_match(self) -> "PasswordChangeRequest":
+        if self.new_password != self.confirm_password:
+            raise ValueError("La confirmación no coincide con la nueva contraseña.")
+        if self.new_password == self.current_password:
+            raise ValueError("La nueva contraseña debe ser diferente a la actual.")
+        return self
+
+
 class CollectionRunResponse(BaseModel):
     id_ejecucion: int
     tipo_ejecucion: str

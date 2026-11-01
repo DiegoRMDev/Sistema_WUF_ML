@@ -86,7 +86,7 @@ Los archivos `backend/app/domain/model_training.py`, `backend/app/services/model
 ## Configuración inicial en Windows
 
 1. Haz una copia de seguridad de PostgreSQL.
-2. El esquema limpio actual `backend/schema_wuf_predict_v6.sql` está instalado en `wuf_predict_v9`, junto con HU01–HU07 y OE3/K-Means. Sigue [`11-inicio-local.md`](11-inicio-local.md) para usar la base configurada; no combines instaladores ni ejecutes una instalación limpia sobre una base con datos.
+2. El instalador limpio actual `backend/schema_wuf_predict_db.sql` está instalado en `wuf_predict_db` y contiene las tablas de HU01–HU08, incluido K-Means para OE3. Sigue [`11-inicio-local.md`](11-inicio-local.md) para usar la base configurada; no combines instaladores ni ejecutes una instalación limpia sobre una base con datos.
 3. Desde PowerShell entra a `backend/`, activa `.venv` y actualiza las dependencias del proyecto:
 
    ```powershell

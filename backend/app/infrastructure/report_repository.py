@@ -127,9 +127,13 @@ class ReportRepository:
 
     def get_report_history(self, *, limit: int = 30) -> list[dict[str, Any]]:
         """Lista exportaciones guardadas que tienen sus filas de predicción asociadas."""
-        rows = self._session.execute(text("""
+        actor_name_column = (
+            "report.nombre_usuario_generador"
+            if self._has_report_name_snapshot() else "account.nombre"
+        )
+        rows = self._session.execute(text(f"""
             SELECT report.id_reporte, report.semana, report.fecha_generacion, report.formato,
-                   account.nombre AS usuario, model.version AS modelo_version,
+                   {actor_name_column} AS usuario, model.version AS modelo_version,
                    segment_model.version AS segmentacion_version,
                    COUNT(DISTINCT prediction.id_prediccion) AS total_oe1,
                    COUNT(DISTINCT report_segment.id_asignacion_segmento) AS total_oe3
@@ -141,11 +145,22 @@ class ReportRepository:
               ON segment_model.id_modelo_segmentacion=report.id_modelo_segmentacion
             LEFT JOIN reporte_segmento_detalle report_segment
               ON report_segment.id_reporte=report.id_reporte
-            GROUP BY report.id_reporte, account.nombre, model.version, segment_model.version
+            GROUP BY report.id_reporte, {actor_name_column}, model.version, segment_model.version
             ORDER BY report.fecha_generacion DESC, report.id_reporte DESC
             LIMIT :limit
         """), {"limit": limit}).mappings().all()
         return [dict(row) for row in rows]
+
+    def _has_report_name_snapshot(self) -> bool:
+        """Permite que la aplicación conviva con la base actual y el esquema limpio final."""
+        return bool(self._session.execute(text("""
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_schema = current_schema()
+                  AND table_name = 'reporte_priorizacion'
+                  AND column_name = 'nombre_usuario_generador'
+            )
+        """)).scalar_one())
 
     def get_saved_report(self, report_id: int) -> dict[str, Any] | None:
         """Reconstruye una exportación usando sus predicciones y snapshots históricos guardados."""
@@ -227,15 +242,27 @@ class ReportRepository:
     ) -> int:
         """Guarda la exportación y copia sus filas para que el reporte sea inmutable."""
         try:
-            report_id = self._session.execute(text("""
-                INSERT INTO reporte_priorizacion
-                    (id_usuario, semana, fecha_generacion, formato, id_ejecucion, id_modelo_segmentacion)
-                VALUES (:user_id, :week, :generated_at, :format, :run_id, :segment_model_id)
-                RETURNING id_reporte
-            """), {
+            report_values = {
                 "user_id": user_id, "week": week, "generated_at": generated_at, "format": formato,
                 "run_id": run_id, "segment_model_id": segmentation_model_id,
-            }).scalar_one()
+            }
+            if self._has_report_name_snapshot():
+                report_id = self._session.execute(text("""
+                    INSERT INTO reporte_priorizacion
+                        (id_usuario, nombre_usuario_generador, semana, fecha_generacion, formato,
+                         id_ejecucion, id_modelo_segmentacion)
+                    SELECT account.id_usuario, account.nombre, :week, :generated_at, :format,
+                           :run_id, :segment_model_id
+                    FROM usuario account WHERE account.id_usuario = :user_id
+                    RETURNING id_reporte
+                """), report_values).scalar_one()
+            else:
+                report_id = self._session.execute(text("""
+                    INSERT INTO reporte_priorizacion
+                        (id_usuario, semana, fecha_generacion, formato, id_ejecucion, id_modelo_segmentacion)
+                    VALUES (:user_id, :week, :generated_at, :format, :run_id, :segment_model_id)
+                    RETURNING id_reporte
+                """), report_values).scalar_one()
 
             for item in items:
                 self._session.execute(text("""

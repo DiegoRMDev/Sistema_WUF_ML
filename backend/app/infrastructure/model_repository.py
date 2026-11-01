@@ -220,7 +220,8 @@ class ModelRepository:
                     INSERT INTO prediccion
                     (id_modelo, id_mascota, id_ejecucion, id_reporte, probabilidad_adopcion,
                          nivel_prioridad, fecha)
-                    VALUES (:model_id, :pet_id, :run_id, NULL, :probability, :priority, CURRENT_TIMESTAMP)
+                    VALUES (:model_id, :pet_id, :run_id, NULL, :probability, :priority,
+                            (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima'))
                 """), {
                     "model_id": model_id,
                     "pet_id": prediction["id_mascota"],
@@ -257,7 +258,8 @@ class ModelRepository:
                         (id_modelo, id_mascota, id_ejecucion, id_reporte,
                          probabilidad_adopcion, nivel_prioridad, fecha)
                     VALUES (:model_id, :pet_id, :run_id, NULL,
-                            :probability, :priority, CURRENT_TIMESTAMP)
+                            :probability, :priority,
+                            (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima'))
                 """), {
                     "model_id": model_id,
                     "pet_id": prediction["id_mascota"],

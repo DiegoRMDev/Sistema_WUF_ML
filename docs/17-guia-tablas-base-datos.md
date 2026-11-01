@@ -2,7 +2,9 @@
 
 ## Alcance
 
-Esta guía describe las **22 tablas** del instalador limpio [`../backend/schema_wuf_predict_v6.sql`](../backend/schema_wuf_predict_v6.sql), que integra HU01–HU07 y el agrupamiento K-Means de OE3 para PostgreSQL 16. Verifiqué la base configurada actualmente: `wuf_predict_v9` contiene exactamente estas 22 tablas, sin faltantes ni tablas adicionales. El archivo v6 identifica el diseño SQL, no el nombre de la base.
+Esta guía describe las **20 tablas** del instalador final [`../backend/schema_wuf_predict_db.sql`](../backend/schema_wuf_predict_db.sql), para PostgreSQL 16. Conserva las estructuras usadas por HU01–HU08, agrega copias de los nombres de responsables para que el historial no cambie al editar un perfil y omite dos tablas del diseño antiguo que el sistema actual no utiliza.
+
+La base configurada actualmente es `wuf_predict_db` y usa estas 20 tablas del instalador limpio. Los archivos SQL versionados y las migraciones que siguen en el repositorio son antecedentes de desarrollo, no instrucciones para la base actual. Para una instalación nueva, ejecuta `schema_wuf_predict_db.sql` solo sobre una base vacía; el script no crea ni borra bases.
 
 Una **PK** identifica una fila. Una **FK** conecta una fila con otra tabla y protege esa relación. Por ejemplo, un snapshot guarda el ID de la mascota y de la ejecución que lo produjo.
 
@@ -12,11 +14,9 @@ Una **PK** identifica una fila. Una **FK** conecta una fila con otra tabla y pro
 
 | Tabla | ¿Para qué sirve? | Relaciones principales |
 |---|---|---|
-| `usuario` | Guarda las cuentas de acceso: nombre, correo, rol y hash de contraseña. | Puede iniciar muchas `ejecucion_recoleccion`, generar muchos `reporte_priorizacion` y figurar como responsable de versiones HU04. |
-| `mascota` | Mantiene la identidad estable por SKU y sus datos descriptivos actuales. | Una mascota puede tener etiquetas, aparecer en muchos snapshots y relacionarse con adopciones, predicciones, alertas y evaluaciones HU04. |
+| `usuario` | Guarda las cuentas de acceso: nombre, correo, rol y hash de contraseña. | Puede iniciar muchas `ejecucion_recoleccion`, generar reportes y figurar como responsable de versiones HU04 u OE3. |
+| `mascota` | Mantiene la identidad estable por SKU y sus datos descriptivos actuales. | Una mascota puede tener etiquetas, aparecer en muchos snapshots y relacionarse con predicciones, alertas y evaluaciones HU04. |
 | `etiqueta_condicion` | Guarda las etiquetas estandarizadas asociadas actualmente a una mascota. | Cada etiqueta pertenece a una `mascota`; no se repite la misma etiqueta para la misma mascota. |
-| `adoptante` | Representa a la persona que recibe una mascota en el diseño de datos. | Puede relacionarse con varias filas de `adopcion`. El flujo CSV y el entrenamiento actual no cargan datos de adoptantes. |
-| `adopcion` | Registra una adopción con mascota, adoptante, fecha, costo y estado. | Cada fila apunta a una `mascota` y un `adoptante`. La salida de catálogo usada por HU02 no crea una adopción aquí ni confirma que haya ocurrido. |
 
 ### Recolección e historial del catálogo — HU01
 
@@ -45,9 +45,9 @@ Una **PK** identifica una fila. Una **FK** conecta una fila con otra tabla y pro
 |---|---|---|
 | `modelo_predictivo` | Conserva cada versión de Random Forest, dataset de origen, métricas, parámetros, estado y referencia/hash del artefacto. | Cada modelo se entrena con un `dataset_historico` y puede producir muchas predicciones. |
 | `prediccion` | Guarda probabilidad estimada, prioridad, fecha, mascota, modelo y ejecución evaluada. | Apunta a `modelo_predictivo`, `mascota` y opcionalmente a `ejecucion_recoleccion` y `reporte_priorizacion`. Una predicción normal tiene `id_reporte` vacío; al exportar, se copia y queda asociada a un reporte. |
-| `reporte_priorizacion` | Registra cada exportación de HU05: usuario, semana ISO, fecha y formato PDF o Excel. | Pertenece a un `usuario`; sus filas históricas se relacionan mediante las copias de `prediccion` con `id_reporte`. |
+| `reporte_priorizacion` | Registra cada exportación de HU05: usuario, nombre visible al exportar, semana ISO, fecha y formato PDF o Excel. | Pertenece a un `usuario`; conserva el nombre del generador como copia histórica y relaciona las filas incluidas mediante `prediccion.id_reporte`. |
 
-En el esquema v6, `reporte_priorizacion` también apunta a la ejecución y al modelo K-Means incluidos en esa exportación. Así se mantiene clara la procedencia de los dos objetivos.
+En el instalador final, `reporte_priorizacion` también apunta a la ejecución y al modelo K-Means incluidos en esa exportación. Así se mantiene clara la procedencia de los dos objetivos.
 
 ### Segmentación de perfiles — OE3 / HU06
 
@@ -68,7 +68,7 @@ El catálogo y el reporte consultan las predicciones del modelo vigente ligadas 
 | `modelo_consistencia` | Versiona el árbol de decisión de HU04, su ejecución de referencia, métricas, variables, reglas, parámetros y artefacto. | Puede registrar el `usuario` que lo entrenó y apunta a `ejecucion_recoleccion`; tiene muchas evaluaciones. |
 | `evaluacion_consistencia` | Guarda la prioridad de revisión por mascota en una captura, más la justificación e indicadores. | Conecta `modelo_consistencia`, `mascota`, `snapshot_catalogo` y `ejecucion_recoleccion`. |
 | `alerta_desactualizacion` | Mantiene una alerta interna cuando HU04 asigna prioridad alta. Registra creación, última detección, mensaje y estado actual; enlaza la primera evaluación y la evaluación más reciente que la volvió a detectar. | Apunta a `mascota` y a `evaluacion_consistencia`. Solo puede haber una alerta abierta por mascota; al resolverse puede comenzar un episodio nuevo en una evaluación posterior. |
-| `alerta_atencion` | Guarda cada acción del Área de Ayuda: estado anterior/nuevo, usuario, fecha y nota. | Pertenece a `alerta_desactualizacion` y a `usuario`; conserva el historial aunque la alerta avance de pendiente a revisión y luego a resuelta. |
+| `alerta_atencion` | Guarda cada acción del Área de Ayuda: estado anterior/nuevo, usuario, nombre visible al atender, fecha y nota. | Pertenece a `alerta_desactualizacion` y a `usuario`; conserva el nombre registrado en ese momento aunque el usuario cambie luego su perfil. |
 
 La prioridad de revisión que muestra HU04 se calcula con una regla directa y provisional. El árbol de decisión aprende a aproximarla; sus métricas no prueban que el estado real del catálogo sea correcto o incorrecto. HU07 crea una alerta interna únicamente para prioridad alta. La alerta sigue siendo una solicitud de verificación humana, no una confirmación de estado obsoleto. Los días sin cambio se derivan de la secuencia observada de capturas y se conservan en los indicadores JSON de la evaluación; no representan una verificación directa en WUF.
 
@@ -83,8 +83,6 @@ erDiagram
     MASCOTA ||--o{ SNAPSHOT_CATALOGO : aparece
     EJECUCION_RECOLECCION ||--o{ SNAPSHOT_CATALOGO : contiene
     SNAPSHOT_CATALOGO ||--o{ SNAPSHOT_ETIQUETA_CONDICION : conserva
-    MASCOTA ||--o{ ADOPCION : recibe
-    ADOPTANTE ||--o{ ADOPCION : realiza
     DATASET_HISTORICO ||--o{ DATASET_SNAPSHOT : selecciona
     SNAPSHOT_CATALOGO ||--o{ DATASET_SNAPSHOT : pertenece
     DATASET_HISTORICO ||--o{ DATASET_EJECUCION : compara
@@ -128,6 +126,8 @@ Las tablas de unión —`dataset_snapshot` y `dataset_ejecucion`— resuelven re
 6. **HU06/OE3:** `modelo_segmentacion` registra K-Means y `asignacion_segmento` enlaza cada grupo con el snapshot de esa captura. Al exportar, `reporte_segmento_detalle` conserva las asignaciones usadas.
 7. **HU07:** al guardar la evaluación HU04, `alerta_desactualizacion` registra las prioridades altas. Si el caso sigue abierto, se actualiza su última evidencia; cuando ya fue resuelto y vuelve a resultar prioritario, comienza un episodio nuevo. El Área de Ayuda registra cada transición y nota en `alerta_atencion`.
 
-## Qué no significa la presencia de una tabla
+## Tablas omitidas del instalador vigente
 
-El esquema incluye `adoptante` y `adopcion` por el modelo de dominio; los CSV actuales no aportan adopciones reales. Las alertas de HU07 se generan a partir de prioridades demo de HU04 y requieren confirmación humana. La base configurada actualmente (`wuf_predict_v9`) ya tiene instalado el esquema v6; no vuelvas a ejecutar el instalador sobre ella ni lo uses como migración.
+`adoptante` y `adopcion` figuraban en el modelo conceptual inicial, pero el sistema implementado no tiene pantallas, endpoints ni consultas que las utilicen. Los CSV no contienen adoptantes ni adopciones confirmadas; la salida del catálogo es solo una etiqueta proxy para HU03. Por eso no forman parte de las 20 tablas del nuevo instalador.
+
+En la base vigente `wuf_predict_db`, esas dos tablas no existen porque el backend no las necesita. Las alertas HU07 siguen siendo avisos de revisión humana, no confirmaciones de estado obsoleto.

@@ -25,7 +25,7 @@
 - Autorización por defecto denegada, validada en cada endpoint y también por registro/acción. Probar accesos permitidos y denegados; evitar IDOR/BOLA al descargar por ID.
 - Secretos y DSN solo por entorno/gestor de secretos; validar variables requeridas al iniciar. `.env` ignorado en Git; `.env.example` con valores claramente ficticios; rotar secretos filtrados.
 - Consultas parametrizadas/ORM; escapar salida HTML (`textContent`, no concatenar HTML sin sanitizar); CSP, CORS por allowlist, HTTPS; protección CSRF si aplica; límites de carga y descargas.
-- CSV de captura: aceptar solo archivos del directorio configurado, validar tamaño/codificación/esquema, no permitir rutas de archivo enviadas por navegador y no confiar en valores importados. Si en el futuro se reactiva una fuente HTTP, aplicar allowlist HTTPS, timeout, límite de bytes y control de redirects para mitigar SSRF.
+- CSV de captura: recibir el archivo seleccionado manualmente en la solicitud, validar tamaño/codificación/esquema, no aceptar rutas locales enviadas por navegador y no confiar en valores importados. Si en el futuro se reactiva una fuente HTTP, aplicar allowlist HTTPS, timeout, límite de bytes y control de redirects para mitigar SSRF.
 - CSV: neutralizar fórmulas iniciadas por `=`, `+`, `-`, `@` al exportar texto no confiable. Archivos: nombres generados, tipo validado, ubicación privada fuera de webroot y permiso antes de descargar.
 - Minimización y retención: recolectar solo atributos necesarios; evitar adoptante/email/teléfono en el MVP predictivo; definir acceso, retención, borrado y backup protegido si se incorporan.
 - Auditar cambios de configuración, activación de modelo, revisiones de alerta y acciones privilegiadas; guardar actor y antes/después sin copiar secretos.
@@ -33,8 +33,8 @@
 ## No hardcodear
 
 - No hardcodear contraseñas, claves, URLs internas, DSN, destinatarios, umbrales, bandas de prioridad, horario, zona horaria, etiquetas, tamaño de página, límites operativos ni rutas de artefactos.
-- Configuración validada desde variables de entorno/archivo local excluido o tabla de configuración autorizada. Umbrales versionados y con valores iniciales documentados; valor de ejemplo no implica valor aprobado.
-- Persistir en DB reglas del negocio editables, con auditoría y validación de rango; credenciales siempre fuera de DB/config pública.
+- La configuración técnica vigente se valida desde variables de entorno/`backend/.env`; no existe una interfaz ni tabla de parámetros generales. Las preferencias de apariencia se guardan en el navegador y el nombre/contraseña se actualizan mediante endpoints autenticados.
+- Persistir en DB las versiones y resultados de modelos y acciones auditables que ya forman parte del dominio; mantener las credenciales fuera del frontend y no exponer secretos.
 - Mantener constantes internas solo para valores inmutables del protocolo; centralizadas y explícitas.
 - No usar nombres, SKU, contadores, métricas o contraseñas de ejemplo del prototipo en producción. No sustituir fallo de API por datos estáticos silenciosamente.
 
@@ -51,7 +51,7 @@
 ## Configuración y estructura
 
 - Separar settings tipados por ambiente. Fallar temprano si falta secreto/config requerida; no registrar el objeto de configuración completo.
-- Migraciones Alembic revisadas y reversibles cuando sea viable. Inicialización de demo solo en entorno local explícito.
+- La instalación vigente parte de `schema_wuf_predict_db.sql`; los SQL de upgrades se conservan para bases históricas y no se aplican a la base activa.
 - `.gitignore`: `.env*` con excepción de `.env.example`, DB locales, caches, exports con PII, modelos/artefactos y logs.
 - Fijar versiones de dependencias; actualizar de forma controlada y preservar metadata del entorno ML. Modelos joblib son objetos ejecutables al cargar: aceptar solo artefactos internos firmados/inmutables, nunca uploads arbitrarios.
 

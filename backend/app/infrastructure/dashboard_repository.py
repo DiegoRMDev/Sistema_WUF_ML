@@ -152,7 +152,11 @@ class DashboardRepository:
         rows = self._session.execute(text("""
             SELECT activity.fecha, activity.accion, activity.detalle
             FROM (
-                SELECT COALESCE(run.fecha_fin, run.fecha_inicio) AS fecha,
+                -- Las ejecuciones guardan sus marcas de tiempo como UTC sin zona.
+                -- Se convierten a la hora de Lima para que el cliente las formatee junto
+                -- con los demás eventos, que ya se almacenan como hora local.
+                SELECT (COALESCE(run.fecha_fin, run.fecha_inicio)
+                        AT TIME ZONE 'UTC' AT TIME ZONE 'America/Lima') AS fecha,
                        'Captura CSV importada'::VARCHAR AS accion,
                        ('Semana ' || run.semana || ' · ' || run.perfiles_total || ' perfiles')::VARCHAR AS detalle
                 FROM ejecucion_recoleccion AS run
@@ -168,6 +172,17 @@ class DashboardRepository:
                        ('Versión ' || model.version || ' · ' || model.estado)::VARCHAR
                 FROM modelo_predictivo AS model
                 UNION ALL
+                -- Las predicciones independientes de reportes se crean al publicar
+                -- o actualizar el catálogo; su fecha registra esa acción.
+                SELECT MAX(prediction.fecha),
+                       'Catálogo actualizado con Random Forest'::VARCHAR,
+                       ('Versión ' || model.version || ' · '
+                        || COUNT(DISTINCT prediction.id_mascota) || ' predicciones')::VARCHAR
+                FROM modelo_predictivo AS model
+                JOIN prediccion AS prediction ON prediction.id_modelo = model.id_modelo
+                WHERE prediction.id_reporte IS NULL
+                GROUP BY model.id_modelo, model.version
+                UNION ALL
                 SELECT model.fecha_entrenamiento,
                        'Árbol de decisión entrenado'::VARCHAR,
                        ('Versión ' || model.version)::VARCHAR
@@ -178,19 +193,43 @@ class DashboardRepository:
                        ('Versión ' || model.version || ' · ' || model.cantidad_clusters || ' segmentos')::VARCHAR
                 FROM modelo_segmentacion AS model
                 UNION ALL
+                -- La fecha y las asignaciones se guardan al activar o actualizar
+                -- K-Means; se muestra una sola fila con el último catálogo aplicado.
+                SELECT latest.applied_at,
+                       'Reporte de priorización actualizado con K-Means'::VARCHAR,
+                       ('Versión ' || model.version || ' · '
+                        || COUNT(DISTINCT assignment.id_snapshot) || ' perfiles · '
+                        || model.cantidad_clusters || ' segmentos')::VARCHAR
+                FROM modelo_segmentacion AS model
+                JOIN (
+                    SELECT id_modelo_segmentacion, MAX(fecha_asignacion) AS applied_at
+                    FROM asignacion_segmento
+                    GROUP BY id_modelo_segmentacion
+                ) AS latest ON latest.id_modelo_segmentacion = model.id_modelo_segmentacion
+                JOIN asignacion_segmento AS assignment
+                  ON assignment.id_modelo_segmentacion = latest.id_modelo_segmentacion
+                 AND assignment.fecha_asignacion = latest.applied_at
+                GROUP BY model.id_modelo_segmentacion, model.version,
+                         model.cantidad_clusters, latest.applied_at
+                UNION ALL
                 SELECT report.fecha_generacion,
                        'Reporte de priorización exportado'::VARCHAR,
                        UPPER(report.formato)::VARCHAR
                 FROM reporte_priorizacion AS report
                 UNION ALL
-                SELECT alert.fecha,
-                       'Alerta de riesgo alto generada'::VARCHAR,
-                       ('Semana ' || run.semana)::VARCHAR
+                -- Agrupa los avisos por la evaluación del árbol para mostrar una
+                -- sola actividad por corrida, sin llenar el Dashboard con una fila
+                -- por cada mascota señalada.
+                SELECT MAX(alert.fecha_ultima_deteccion),
+                       'Perfiles con riesgo alto detectados'::VARCHAR,
+                       ('Semana ' || run.semana || ' · '
+                        || COUNT(DISTINCT alert.id_mascota) || ' perfiles')::VARCHAR
                 FROM alerta_desactualizacion AS alert
                 JOIN evaluacion_consistencia AS evaluation
-                  ON evaluation.id_evaluacion = alert.id_evaluacion_origen
+                  ON evaluation.id_evaluacion = alert.id_evaluacion_ultima
                 JOIN ejecucion_recoleccion AS run ON run.id_ejecucion = evaluation.id_ejecucion
                 WHERE alert.nivel_riesgo = 'alto'
+                GROUP BY evaluation.id_modelo_consistencia, run.id_ejecucion, run.semana
                 UNION ALL
                 SELECT attention.fecha,
                        'Alerta atendida'::VARCHAR,

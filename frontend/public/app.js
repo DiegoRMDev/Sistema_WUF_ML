@@ -158,6 +158,63 @@ function enterApp(user, view) {
   refreshAlertBadge();
 }
 
+function updateCurrentUser(user) {
+  // Mantiene el nombre, el avatar y la ficha de configuración sincronizados tras editar el perfil.
+  currentUser = user;
+  $("whoName").textContent = user.nombre;
+  $("whoRole").textContent = user.email;
+  $("avatarTxt").textContent = user.nombre.split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
+  $("cfgNombre").value = user.nombre;
+  $("cfgEmail").value = user.email;
+}
+
+async function saveProfileName(event) {
+  event.preventDefault();
+  const button = $("saveProfileButton");
+  button.disabled = true;
+  setNotice("profileMessage", "Guardando el nombre…", "loading");
+  try {
+    const user = await api("/auth/me", {
+      method: "PATCH",
+      body: JSON.stringify({ nombre: $("cfgNombre").value.trim() }),
+    });
+    updateCurrentUser(user);
+    setNotice("profileMessage", "Nombre actualizado.", "success");
+  } catch (cause) {
+    setNotice("profileMessage", cause.message, "error");
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function changeAccountPassword(event) {
+  event.preventDefault();
+  const button = $("changePasswordButton");
+  const newPassword = $("cfgPass1").value;
+  if (newPassword !== $("cfgPass2").value) {
+    setNotice("passwordMessage", "La confirmación no coincide con la nueva contraseña.", "error");
+    return;
+  }
+  button.disabled = true;
+  setNotice("passwordMessage", "Actualizando la contraseña…", "loading");
+  try {
+    await api("/auth/change-password", {
+      method: "POST",
+      body: JSON.stringify({
+        current_password: $("cfgCurrentPassword").value,
+        new_password: newPassword,
+        confirm_password: $("cfgPass2").value,
+      }),
+    });
+    $("passwordForm").reset();
+    setNotice("passwordMessage", "Contraseña actualizada.", "success");
+  } catch (cause) {
+    setNotice("passwordMessage", cause.message, "error");
+  } finally {
+    button.disabled = false;
+  }
+}
+
 function allowed(view) {
   const current = session();
   const link = document.querySelector(`.navitem[data-view="${CSS.escape(view)}"]`);
@@ -169,6 +226,7 @@ function showView(name) {
   document.querySelectorAll(".view").forEach((view) => view.classList.add("hidden"));
   const activeView = $(`view-${name}`);
   if (!activeView) return;
+  if (name !== "configuracion") $("passwordForm")?.reset();
   activeView.classList.remove("hidden");
   document.querySelectorAll(".navitem").forEach((nav) => nav.classList.toggle("active", nav.dataset.view === name));
   $("topTitle").textContent = activeView.querySelector("h1")?.textContent || "WUF Predict";
@@ -2117,6 +2175,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     nav.addEventListener("click", (event) => { event.preventDefault(); showView(nav.dataset.view); });
   });
   window.addEventListener("hashchange", () => { if (session()) showView(location.hash.slice(1)); });
+  $("profileForm").addEventListener("submit", saveProfileName);
+  $("passwordForm").addEventListener("submit", changeAccountPassword);
   $("chooseCollectionFileButton").addEventListener("click", () => $("collectionCsvFile").click());
   $("collectionCsvFile").addEventListener("change", (event) => {
     const file = event.currentTarget.files?.[0];

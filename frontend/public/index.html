@@ -400,7 +400,7 @@
 
     <section class="view hidden" id="view-configuracion">
       <h1>Configuración</h1>
-      <p class="lead">Preferencias de la cuenta y parámetros del sistema</p>
+      <p class="lead">Preferencias de apariencia y cuenta</p>
       <div class="card pad">
         <h2>Apariencia</h2>
         <div class="settings-grid">
@@ -410,37 +410,24 @@
       </div>
       <div class="card pad">
         <h2>Perfil</h2>
-        <div class="settings-grid">
-          <div class="field"><label for="cfgNombre">Nombre</label><input id="cfgNombre" type="text"></div>
-          <div class="field"><label for="cfgEmail">Correo electrónico</label><input id="cfgEmail" type="email" readonly></div>
-          <div class="field"><label for="cfgPass1">Nueva contraseña</label><input id="cfgPass1" type="password" autocomplete="new-password"></div>
-          <div class="field"><label for="cfgPass2">Confirmar contraseña</label><input id="cfgPass2" type="password" autocomplete="new-password"></div>
-        </div>
+        <form id="profileForm" class="settings-form">
+          <div class="settings-grid">
+            <div class="field"><label for="cfgNombre">Nombre</label><input id="cfgNombre" type="text" maxlength="100" required autocomplete="name"></div>
+            <div class="field"><label for="cfgEmail">Correo electrónico</label><input id="cfgEmail" type="email" disabled autocomplete="email"></div>
+          </div>
+          <div class="toolbar"><button id="saveProfileButton" type="submit" class="primary"><i data-lucide="save"></i>Guardar nombre</button></div>
+        </form>
       </div>
-      <div class="card pad" data-roles="analista">
-        <h2>Parámetros del sistema</h2>
-        <div class="settings-grid">
-          <div class="field"><label for="cfgUmbral">Accuracy mínima para publicar un modelo (%)</label><input id="cfgUmbral" type="number" value="75" min="50" max="100"></div>
-          <div class="field"><label for="cfgCorte">Probabilidad de permanencia para prioridad alta (%)</label><input id="cfgCorte" type="number" value="65" min="50" max="95"></div>
-          <div class="field"><label for="cfgSemanas">Capturas sin cambio para riesgo alto</label><input id="cfgSemanas" type="number" value="3" min="2" max="8"></div>
-          <div class="field"><label for="cfgOrden">Orden de publicación mínimo para riesgo alto</label><input id="cfgOrden" type="number" value="142" min="1" max="189"></div>
-          <div class="field"><label for="cfgPeriodo">Periodicidad de la recolección</label><select id="cfgPeriodo"><option>Semanal (lunes 09:00)</option><option>Quincenal</option></select></div>
-          <div class="field"><label for="cfgFuente">Fuente del catálogo</label><input id="cfgFuente" type="url" value="https://wuf.pe/adopta"></div>
-        </div>
-      </div>
-      <div class="card" data-roles="analista">
-        <div class="card-head"><h2>Roles y permisos</h2></div>
-        <table>
-          <thead><tr><th>Rol</th><th>Usuario</th><th>Pantallas</th></tr></thead>
-          <tbody>
-            <tr><td>Analista de Datos</td><td>analista@wuf.pe</td><td>Dashboard, Catálogo, Recolección, Dataset histórico, Entrenamiento, Alertas, Reporte, Configuración</td></tr>
-            <tr><td>Equipo de Marketing</td><td>marketing@wuf.pe</td><td>Dashboard, Catálogo, Reporte de priorización, Configuración</td></tr>
-            <tr><td>Área de Ayuda</td><td>ayuda@wuf.pe</td><td>Dashboard, Catálogo, Alertas, Configuración</td></tr>
-          </tbody>
-        </table>
-      </div>
-      <div class="toolbar">
-        <button type="button" class="primary"><i data-lucide="save"></i>Guardar cambios</button>
+      <div class="card pad">
+        <h2>Cambiar contraseña</h2>
+        <form id="passwordForm" class="settings-form">
+          <div class="settings-grid">
+            <div class="field"><label for="cfgCurrentPassword">Contraseña actual</label><input id="cfgCurrentPassword" type="password" required autocomplete="current-password"></div>
+            <div class="field"><label for="cfgPass1">Nueva contraseña</label><input id="cfgPass1" type="password" minlength="8" maxlength="256" required autocomplete="new-password"></div>
+            <div class="field"><label for="cfgPass2">Confirmar nueva contraseña</label><input id="cfgPass2" type="password" minlength="8" maxlength="256" required autocomplete="new-password"></div>
+          </div>
+          <div class="toolbar"><button id="changePasswordButton" type="submit" class="primary"><i data-lucide="key-round"></i>Actualizar contraseña</button></div>
+        </form>
       </div>
     </section>
   </main>
@@ -449,6 +436,6 @@
 
 <script src="config.js"></script>
 <div id="toastRegion" class="toast-region" aria-label="Mensajes del sistema"></div>
-<script src="app.js?v=hu06-segment-6"></script>
+<script src="app.js?v=account-profile-final-schema"></script>
 </body>
 </html>

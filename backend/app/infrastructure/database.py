@@ -53,7 +53,7 @@ def verify_hu01_schema() -> None:
         raise RuntimeError(
             "El esquema PostgreSQL no incluye las estructuras requeridas por HU01/HU02. "
             "Para la instalación actual, crea una base vacía y ejecuta "
-            "backend/schema_wuf_predict_v6.sql."
+            "backend/schema_wuf_predict_db.sql."
         )
 
 
@@ -80,7 +80,7 @@ def verify_hu03_schema() -> None:
     if not required.issubset(available):
         raise RuntimeError(
             "La base conectada no incluye el esquema limpio requerido para los módulos actuales. "
-            "Crea una base vacía y ejecuta backend/schema_wuf_predict_v6.sql."
+            "Crea una base vacía y ejecuta backend/schema_wuf_predict_db.sql."
         )
 
 
@@ -121,7 +121,7 @@ def verify_hu04_schema() -> None:
     if not {"modelo_consistencia", "evaluacion_consistencia"}.issubset(tables) or not required.issubset(hu04_columns):
         raise RuntimeError(
             "La base conectada no incluye la persistencia de HU04. Crea una base vacía y ejecuta "
-            "backend/schema_wuf_predict_v6.sql."
+            "backend/schema_wuf_predict_db.sql."
         )
 
 
@@ -147,7 +147,7 @@ def verify_hu07_schema() -> None:
     if not required.issubset(available):
         raise RuntimeError(
             "La base conectada no incluye HU07. Crea una base nueva y vacía y ejecuta "
-            "backend/schema_wuf_predict_v6.sql; no apliques ese instalador sobre una base existente."
+            "backend/schema_wuf_predict_db.sql; no apliques ese instalador sobre una base existente."
         )
 
 
@@ -176,5 +176,5 @@ def verify_hu06_schema() -> None:
     if not required_tables.issubset(tables) or not required_columns.issubset(columns):
         raise RuntimeError(
             "Falta el esquema limpio de segmentación OE3. Crea una base vacía y ejecuta "
-            "backend/schema_wuf_predict_v6.sql; no lo ejecutes como migración sobre una base con datos."
+            "backend/schema_wuf_predict_db.sql; no lo ejecutes como migración sobre una base con datos."
         )

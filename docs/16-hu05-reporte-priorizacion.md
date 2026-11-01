@@ -75,7 +75,7 @@ K-Means no se guarda en `modelo_predictivo`: esa tabla describe el Random Forest
 - `reporte_segmento_detalle`: conserva qué asignaciones exactas se incluyeron en una exportación.
 - `reporte_priorizacion`: referencia ejecución y modelo OE3 junto con el reporte existente de OE1.
 
-El esquema limpio v6 contiene 22 tablas y está instalado en la base actual `wuf_predict_v9`. No se necesita una migración ni otro esquema para el reporte. `wuf_predict_v7` se conserva como base histórica y no debe recibir el instalador v6.
+La base activa `wuf_predict_db` contiene 20 tablas instaladas desde `schema_wuf_predict_db.sql`. El reporte reutiliza esas tablas y no requiere una migración adicional.
 
 ## Roles y endpoints
 

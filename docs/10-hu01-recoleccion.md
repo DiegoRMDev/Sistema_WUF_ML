@@ -1,6 +1,6 @@
 # HU01 — Recolección desde CSV
 
-> Esta guía conserva antecedentes de la evolución de HU01. La configuración actual usa `wuf_predict_v9` y los archivos de demostración de `data/capturas/escenario_hu02_variable_v4/`; para iniciar o reiniciar el entorno sigue [`11-inicio-local.md`](11-inicio-local.md). No apliques las migraciones históricas descritas aquí a la base actual.
+> Esta guía conserva antecedentes de la evolución de HU01. La configuración actual usa `wuf_predict_db` y los archivos de demostración de `data/capturas/escenario_hu02_variable_v4/`; para iniciar o reiniciar el entorno sigue [`11-inicio-local.md`](11-inicio-local.md). No apliques las migraciones históricas descritas aquí a la base actual.
 
 ## Componentes
 
@@ -14,7 +14,7 @@ No se consulta WUF ni se usa `mascota` como origen. `data/capturas/` sirve para 
 
 ## Estado verificado
 
-El usuario confirmó tres importaciones completadas desde la interfaz, cada una con 180 perfiles guardados y ninguno rechazado. El historial mostró las semanas ISO 40, 41 y 42 (28/09/26, 05/10/26 y 12/10/26), con 108 disponibles, 72 no disponibles y 0 sin publicar en cada captura. Esto confirma el recorrido feliz de selección, envío y consulta del historial. Las pruebas unitarias cubren perfiles válidos, campos inválidos, SKU duplicados, CSV sin perfiles válidos y nombre ya importado. La fuente continúa siendo una simulación CSV, sin extracción real ni programación semanal. El reintento de una captura fallida y el acceso denegado a otros roles aún requieren confirmación manual.
+El usuario confirmó tres importaciones completadas desde la interfaz, en una prueba inicial de capturas estables de 180 perfiles. El escenario de demostración vigente es variable: 180, 165 y 190 perfiles en semanas ISO 40, 41 y 42, respectivamente. Esto confirma el recorrido de selección, envío y consulta; los conteos dependen del CSV importado. Las pruebas unitarias cubren perfiles válidos, campos inválidos, SKU duplicados, CSV sin perfiles válidos y nombre ya importado. La fuente continúa siendo una simulación CSV, sin extracción real ni programación semanal. El reintento de una captura fallida y el acceso denegado a otros roles aún requieren confirmación manual.
 
 ## Cómo se procesan varias capturas
 
@@ -50,13 +50,13 @@ La API usa prefijo `/api/v1`. Login no requiere token; las demás rutas HU01 req
 
 Estados de ejecución: `en_proceso`, `completada`, `parcial` y `fallida`. Los errores de formato se resumen sin exponer rutas locales ni detalles internos.
 
-## Base `wuf_predict_v2`
+## Instalación y migraciones históricas
 
-El backend ahora reconoce el esquema HU01 anterior y el esquema v2. Si ya ejecutaste el esquema v2 previo a esta actualización, aplica una sola vez [`../backend/upgrade_wuf_predict_v2_dataset.sql`](../backend/upgrade_wuf_predict_v2_dataset.sql) antes de construir datasets; no lo ejecutes sobre `wuf_predict`. La guía del esquema está en [`03-modelo-datos.md`](03-modelo-datos.md). La aplicación lee `DATABASE_URL` desde `backend/.env`; cambia solo el nombre de la base a `wuf_predict_v2` cuando decidas usarla y vuelve a crear el usuario de aplicación en esa base vacía.
+Las instrucciones siguientes describen instalaciones antiguas y no aplican a la base activa `wuf_predict_db`. Si necesitas reproducir una base histórica del esquema v2, aplica una sola vez [`../backend/upgrade_wuf_predict_v2_dataset.sql`](../backend/upgrade_wuf_predict_v2_dataset.sql) antes de construir datasets; no lo ejecutes sobre `wuf_predict`. La guía del esquema está en [`03-modelo-datos.md`](03-modelo-datos.md). La aplicación lee `DATABASE_URL` desde `backend/.env`; cambia solo el nombre de la base a `wuf_predict_v2` cuando decidas usarla y vuelve a crear el usuario de aplicación en esa base vacía.
 
-## Migración de base existente
+## Migración histórica de HU01
 
-En base nueva, ejecutar únicamente `backend/schema.sql`. En la base existente que ya tiene las migraciones HU01 previas:
+Estos pasos son solo para la antigua base `wuf_predict`. No los ejecutes sobre `wuf_predict_db`, que se crea desde cero con `backend/schema_wuf_predict_db.sql`. En la base histórica existente que ya tenía migraciones HU01 previas:
 
 1. Crear un respaldo en pgAdmin.
 2. Aplicar una sola vez `backend/upgrade_hu01_csv.sql` desde pgAdmin Query Tool o `backend/` con:
@@ -112,10 +112,10 @@ La API recibe el archivo seleccionado en cada solicitud. Si supera el tamaño m�
 
 ## Límites conocidos
 
-La simulación depende de la calidad y completitud de los CSV. Los tres archivos base contienen 180 perfiles por semana y estados inspirados en el prototipo; las semanas ISO son 40, 41 y 42 de 2026. En ese conjunto cada SKU conserva su estado. Para probar transiciones HU02 se creó una variante separada en `data/capturas/escenario_hu02_v3/`, que se importa en una base limpia aparte. `no_disponible` se usa como proxy para la etiqueta “Salió del catálogo”, no como adopción verificada. Para entrenamiento se debe particionar por SKU o por tiempo para evitar fuga entre snapshots de la misma mascota.
+La simulación depende de la calidad y completitud de los CSV. El escenario demo recomendado es `data/capturas/escenario_hu02_variable_v4/`: sus tres archivos contienen 180, 165 y 190 perfiles para las semanas ISO 40, 41 y 42 de 2026. La versión estable inicial y los escenarios v3 previos se conservan como referencias. Para conocer las secuencias de estados, consulta los README de cada escenario. `no_disponible` se usa como proxy para la etiqueta “Salió del catálogo”, no como adopción verificada. Para entrenamiento se debe particionar por SKU o por tiempo para evitar fuga entre snapshots de la misma mascota.
 
 ## Cierre de HU01 y seguimiento
 
-HU01 se considera completada dentro del alcance acordado: el usuario confirmó tres importaciones válidas de 180 perfiles cada una, consultó el historial y probó un CSV inválido, cuya validación funcionó. La extracción automática de WUF y la programación semanal no forman parte de este alcance.
+HU01 se considera completada dentro del alcance acordado: el usuario confirmó la importación inicial de tres CSV estables de 180 perfiles, consultó el historial y probó un CSV inválido cuya validación funcionó. El escenario de prueba recomendado actualmente es variable (180, 165 y 190 perfiles). La extracción automática de WUF y la programación semanal no forman parte de este alcance.
 
-La verificación manual de acceso denegado para un usuario de otro rol se deja como seguimiento transversal para HU08, donde se revisará la autorización por roles en el sistema. La auditoría directa de filas en PostgreSQL (esperadas en la base limpia: 3 ejecuciones, 180 mascotas y 540 snapshots) es opcional; la interfaz confirmó las tres ejecuciones completadas.
+La verificación manual de acceso denegado para un usuario de otro rol se deja como seguimiento transversal para HU08, donde se revisará la autorización por roles en el sistema. La auditoría directa de filas en PostgreSQL puede usarse para revisar la persistencia; sus conteos dependen de los archivos importados y de las mascotas compartidas entre capturas.

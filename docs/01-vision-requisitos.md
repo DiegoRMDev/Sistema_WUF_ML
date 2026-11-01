@@ -32,7 +32,7 @@ El avance informa una prueba de viabilidad con 189 registros: Random Forest con 
 | Configuración/perfil | Sí | Sí | Sí |
 | Parámetros globales, gestión de permisos | Sí (prototipo) | No | No |
 
-La tabla refleja navegación documentada en el PDF/prototipo; los permisos de operaciones y campos de configuración deben aplicarse en backend, no solo ocultando controles.
+La tabla refleja la navegación del PDF/prototipo. En la Configuración implementada se permite cambiar el nombre y la contraseña, se muestra el correo sin edición y se guarda localmente la preferencia de tema. La gestión de roles/permisos y los parámetros globales del prototipo no forman parte de esta pantalla; las acciones siguen protegidas por el backend.
 
 ## Historias de usuario y criterios
 

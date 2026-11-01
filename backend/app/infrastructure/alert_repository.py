@@ -113,10 +113,14 @@ class AlertRepository:
         alert_ids = [int(item["id_alerta"]) for item in items]
         histories: dict[int, list[dict[str, Any]]] = {alert_id: [] for alert_id in alert_ids}
         if alert_ids:
-            events = self._session.execute(text("""
+            actor_name_column = (
+                "attention.nombre_usuario_actor"
+                if self._has_attention_name_snapshot() else "user_account.nombre"
+            )
+            events = self._session.execute(text(f"""
                 SELECT attention.id_alerta, attention.id_usuario,
                        attention.estado_anterior, attention.estado_nuevo,
-                       attention.fecha, attention.nota, user_account.nombre AS atendido_por
+                       attention.fecha, attention.nota, {actor_name_column} AS atendido_por
                 FROM alerta_atencion AS attention
                 JOIN usuario AS user_account ON user_account.id_usuario = attention.id_usuario
                 WHERE attention.id_alerta = ANY(:alert_ids)
@@ -133,6 +137,17 @@ class AlertRepository:
             WHERE estado IN ('pendiente', 'en_revision')
         """)).scalar_one()
         return {"items": items, "total_abiertas": int(opened)}
+
+    def _has_attention_name_snapshot(self) -> bool:
+        """Detecta la columna añadida al instalador final sin romper la base v6 actual."""
+        return bool(self._session.execute(text("""
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_schema = current_schema()
+                  AND table_name = 'alerta_atencion'
+                  AND column_name = 'nombre_usuario_actor'
+            )
+        """)).scalar_one())
 
     def get_alert_for_update(self, alert_id: int) -> dict[str, Any] | None:
         row = self._session.execute(text("""
@@ -152,20 +167,35 @@ class AlertRepository:
         next_state: str,
         note: str,
     ) -> None:
-        self._session.execute(text("""
-            INSERT INTO alerta_atencion (
-                id_alerta, id_usuario, estado_anterior, estado_nuevo, fecha, nota
-            ) VALUES (
-                :alert_id, :actor_id, :previous_state, :next_state,
-                (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima'), :note
-            )
-        """), {
+        values = {
             "alert_id": alert_id,
             "actor_id": actor_id,
             "previous_state": previous_state,
             "next_state": next_state,
             "note": note,
-        })
+        }
+        has_name_snapshot = self._has_attention_name_snapshot()
+        if has_name_snapshot:
+            self._session.execute(text("""
+                INSERT INTO alerta_atencion (
+                    id_alerta, id_usuario, nombre_usuario_actor, estado_anterior,
+                    estado_nuevo, fecha, nota
+                ) VALUES (
+                    :alert_id, :actor_id,
+                    (SELECT nombre FROM usuario WHERE id_usuario=:actor_id),
+                    :previous_state, :next_state,
+                    (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima'), :note
+                )
+            """), values)
+        else:
+            self._session.execute(text("""
+                INSERT INTO alerta_atencion (
+                    id_alerta, id_usuario, estado_anterior, estado_nuevo, fecha, nota
+                ) VALUES (
+                    :alert_id, :actor_id, :previous_state, :next_state,
+                    (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima'), :note
+                )
+            """), values)
         self._session.execute(text("""
             UPDATE alerta_desactualizacion
             SET estado = :next_state

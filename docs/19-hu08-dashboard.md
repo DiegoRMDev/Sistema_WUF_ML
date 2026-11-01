@@ -11,11 +11,15 @@ Reunir en una vista los resultados recientes de los módulos para que Analista, 
 - **Perfiles desfavorecidos:** perfiles disponibles que cumplen uno o más criterios. Cuando hay asignaciones K-Means para la captura, también se muestra su cobertura y la cantidad de segmentos. La meta operativa de cobertura es 100 % por captura.
 - **Última captura:** perfiles totales y sus estados; cuando existen predicciones, también incluye el reparto por prioridad.
 - **Evolución por captura:** resultados disponibles para las últimas capturas completas. Se muestra “—” cuando un módulo aún no generó resultados para esa captura.
-- **Actividad reciente:** importaciones CSV, datasets, entrenamientos, exportaciones y atención de alertas.
+- **Actividad reciente:** importaciones CSV, datasets, entrenamientos, aplicación de Random Forest al catálogo y K-Means al reporte de priorización, exportaciones y atención de alertas.
+
+Las detecciones de riesgo alto se agrupan en una sola fila por evaluación del árbol, con la semana y la cantidad de perfiles señalados. La lista tiene desplazamiento propio para mantener compacta la pantalla.
 
 ## Datos y funcionamiento
 
 La ruta autenticada `GET /api/v1/dashboard/summary` consulta `ejecucion_recoleccion`, `snapshot_catalogo`, `prediccion`, los resultados de consistencia y segmentación, alertas, datasets y reportes. No agrega tablas ni modifica los resultados. La vista vuelve a consultar al abrirse o al regresar a ella; las cantidades de historial y actividad se limitan mediante `DASHBOARD_HISTORY_CAPTURE_LIMIT` y `DASHBOARD_ACTIVITY_LIMIT`.
+
+La actividad de captura muestra la hora de importación, convertida de UTC a la hora de Lima. “Catálogo actualizado con Random Forest” registra las predicciones aplicadas al catálogo; “Reporte de priorización actualizado con K-Means” registra las asignaciones de segmentos que se usarán en ese reporte.
 
 Las metas se pueden configurar en `backend/.env`:
 
@@ -33,6 +37,6 @@ El sistema usa CSV de demostración y etiquetas proxy. El conteo de prioridad al
 
 ## Validación realizada
 
-La consulta de solo lectura a la base `wuf_predict_v9` comprobó que los valores y las filas históricas cambian según las capturas y resultados persistidos. La API respondió `401` sin sesión y `200` con la cuenta Analista existente. En esa base no hay cuentas Marketing ni Área de Ayuda; el endpoint las acepta mediante la autenticación común, pero esos dos accesos no se pudieron comprobar con cuentas reales.
+La consulta de solo lectura a la base configurada comprobó que los valores y las filas históricas cambian según las capturas y resultados persistidos. La API respondió `401` sin sesión y `200` con la cuenta Analista existente. En esa base no hay cuentas Marketing ni Área de Ayuda; el endpoint las acepta mediante la autenticación común, pero esos dos accesos no se pudieron comprobar con cuentas reales.
 
 No hace falta ejecutar una migración para HU08.

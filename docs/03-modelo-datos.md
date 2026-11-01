@@ -1,10 +1,10 @@
 # Modelo físico y diccionario de datos
 
-Este documento conserva el diccionario físico del avance y distingue los esquemas históricos del instalador limpio más reciente. [`../backend/schema_wuf_predict_v4.sql`](../backend/schema_wuf_predict_v4.sql) corresponde a la base anterior `wuf_predict_v6` (HU01–HU04); [`../backend/schema_wuf_predict_v6.sql`](../backend/schema_wuf_predict_v6.sql) integra HU01–HU07 y HU06/OE3 con K-Means para una base nueva. El SQL no migra ni elimina datos existentes.
+Este documento conserva el diccionario físico original y registra la evolución de los esquemas. La base activa es `wuf_predict_db`, creada con el instalador limpio [`../backend/schema_wuf_predict_db.sql`](../backend/schema_wuf_predict_db.sql), que contiene 20 tablas para HU01–HU08. Los SQL versionados y las migraciones anteriores se mantienen como antecedentes; no son pasos de instalación para la base actual. Ningún instalador crea ni elimina por sí mismo una base PostgreSQL.
 
 ## Diccionario de datos del esquema anterior
 
-Las tablas siguientes documentan el diccionario del avance y las extensiones HU01 actualmente usadas por `backend/schema.sql`. Más abajo se describen explícitamente las diferencias del esquema v2 para que no se confundan ambos contratos.
+Las tablas siguientes preservan el diccionario académico y el modelo físico inicial como referencia histórica. Para conocer las tablas actuales, sus relaciones y el orden de los módulos, consulta [`17-guia-tablas-base-datos.md`](17-guia-tablas-base-datos.md) y el instalador final.
 
 En la columna **Restricción** se conserva `PK`, `FK`, `NOT NULL` y `NULL` según el diccionario. En PostgreSQL, `SERIAL` genera una secuencia para el identificador; `PRIMARY KEY` implica `NOT NULL`.
 
@@ -218,22 +218,22 @@ Registra las ejecuciones manuales por CSV y los contadores mostrados en la panta
 - `reporte_priorizacion.id_usuario` referencia `usuario.id_usuario`.
 - `modelo_predictivo.id_dataset` referencia `dataset_historico.id_dataset`.
 
-HU05 reutiliza `reporte_priorizacion` para auditar usuario, semana ISO, fecha y formato de cada exportación. Las predicciones OE1 se conservan como copias con `id_reporte`; v6 también guarda la ejecución, el modelo de segmentación OE3 y las asignaciones exactas incluidas en el reporte. La lectura del catálogo sigue usando predicciones con `id_reporte IS NULL`, así que los reportes históricos no sustituyen las predicciones actuales.
+HU05 reutiliza `reporte_priorizacion` para auditar usuario, semana ISO, fecha y formato de cada exportación. Las predicciones OE1 se conservan como copias con `id_reporte`; el instalador final también guarda la ejecución, el modelo de segmentación OE3 y las asignaciones exactas incluidas en el reporte. La lectura del catálogo sigue usando predicciones con `id_reporte IS NULL`, así que los reportes históricos no sustituyen las predicciones actuales.
 
 ## Orden de creación
 
-El SQL crea primero las tablas referenciadas y luego sus dependientes: usuario y mascota; adoptante, dataset y ejecución; posteriormente relaciones, snapshots, etiquetas históricas, modelos, reportes y predicciones.
+El instalador actual crea primero las tablas referenciadas y luego sus dependientes: usuario, mascota, ejecuciones y datasets; después crea relaciones, snapshots, etiquetas históricas, modelos, reportes, predicciones, alertas y asignaciones de segmentos.
 
-## Complicaciones y límites del modelo definido
+## Notas del diccionario histórico y reglas vigentes
 
-El esquema se ajusta al diccionario; estos puntos describen capacidades que el diccionario no modela y no se han resuelto añadiendo campos:
+Los puntos que hablan de columnas ausentes, migraciones o limitaciones del diccionario describen el diseño académico inicial y sus versiones históricas. Para el esquema vigente, prevalecen el instalador final y la guía de tablas de 20 entidades en [`17-guia-tablas-base-datos.md`](17-guia-tablas-base-datos.md).
 
 1. **Snapshots anteriores:** las migraciones dejan nullable las columnas nuevas para conservar filas ya creadas. No las rellenan con los valores actuales de `mascota`, porque eso falsearía el historial.
 2. **Etiqueta HU02:** el importador no requiere ni persiste `etiqueta_adoptado`; si un archivo legado contiene la columna, se valida y se descarta. HU02 compara snapshots para generar “Permanece / Salió del catálogo”. Una salida inferida no confirma adopción real, no crea filas en `adopcion` y no debe presentarse como KPI real.
 3. **Fecha de captura y calendario:** HU01 valida la fecha del nombre `captura_AAAA-MM-DD.csv` o `captura_demo_AAAA-MM-DD.csv`, deriva la semana ISO y la separa del instante real de importación (`fecha_inicio`/`fecha_fin`).
 4. **Calidad de CSV:** se validan encabezados exactos, codificación UTF-8, tamaño, dominios, tipos y SKU duplicados. Los perfiles inválidos se rechazan con un resumen; no se generan valores para completar campos obligatorios.
-5. **Vinculación snapshot-dataset:** cada snapshot tiene como máximo un `id_dataset` en esta estructura, que además puede ser nulo. Si HU02 conserva capturas fuente y genera distintas versiones de dataset a partir de ellas, el modelo actual no representa bien una relación muchos-a-muchos. Para una base objetivo considerar una tabla de asociación `dataset_snapshot` o registrar el rango/manifiesto inmutable de snapshots usado por cada dataset.
-6. **Seguimiento de alertas:** el instalador limpio v5 introdujo los vínculos entre alertas y evaluaciones HU04, además de guardar cambios en `alerta_atencion` con usuario, fecha y nota. v6 conserva esa estructura e incorpora HU06/OE3.
+5. **Vinculación snapshot-dataset (diseño inicial):** el diseño inicial no representaba bien la relación muchos-a-muchos. El esquema actual ya la resuelve con `dataset_snapshot` y conserva las capturas comparadas en `dataset_ejecucion`.
+6. **Seguimiento de alertas:** el instalador final conserva vínculos entre alertas y evaluaciones HU04; `alerta_atencion` guarda actor, fecha y nota de cada transición.
 7. **Control de unicidad y dominios:** el diccionario no enumera dominios para estado, sexo, rol, formato y prioridad. La aplicación debe validar esos valores; los `CHECK` añadidos se limitan a rangos numéricos, fechas, estado/origen de las ejecuciones y completitud de snapshots nuevos.
 8. **Identidad/idempotencia:** `UNIQUE (sku)` identifica una mascota entre ejecuciones y `UNIQUE (id_ejecucion, id_mascota)` impide duplicarla dentro de una captura. Los CSV deben conservar el SKU para el mismo animal y no reutilizarlo para otro. Cada nombre de archivo se consume una vez. La migración CSV crea el índice único; si hay SKU duplicados existentes, hay que resolverlos antes.
 9. **Ejecuciones de recolección:** HU01 puede registrar tipo, inicio/fin, semana, conteos, estado, error y usuario iniciador. “Vigente” se deriva de la última ejecución completada, no se almacena como estado.
@@ -241,13 +241,13 @@ El esquema se ajusta al diccionario; estos puntos describen capacidades que el d
 11. **Artefactos y parámetros ML:** el diccionario original no incluye la referencia del archivo entrenado, parámetros, semilla, partición ni el modelo vigente. La extensión HU03 descrita a continuación agrega estos metadatos sin eliminar las columnas académicas originales.
 12. **Datos personales:** `adoptante` contiene nombre, email y teléfono. El acceso debe limitarse y estos datos no deben incluirse como variables del modelo.
 
-El archivo `schema.sql` crea el modelo físico documentado y las extensiones de HU01 para una instalación nueva del esquema anterior. No incluye datos semilla ni capturas CSV.
+El archivo `schema.sql` corresponde al esquema inicial. El instalador limpio vigente es `schema_wuf_predict_db.sql`; no incluye usuarios ni capturas CSV de ejemplo.
 
-## Esquema v2 para HU02 y el prototipo
+## Evolución histórica del esquema
 
-Las bases anteriores `wuf_predict_v2` y `wuf_predict_v3` usaron revisiones previas del esquema para HU02. `wuf_predict_v6` corresponde al esquema v4 y `wuf_predict_v7` al instalador limpio v5. El backend actual está conectado a `wuf_predict_v9`, instalada con [`../backend/schema_wuf_predict_v6.sql`](../backend/schema_wuf_predict_v6.sql). Los esquemas antiguos se conservan como referencia; ninguno de estos instaladores se ejecuta sobre una base que ya tenga datos.
+Los esquemas v2/v3/v4/v5/v6 y sus bases asociadas fueron etapas históricas del desarrollo. En esas revisiones se añadieron sucesivamente las tablas de entrenamiento, consistencia, reportes, alertas y segmentación. La base activa `wuf_predict_db` usa únicamente el instalador limpio [`../backend/schema_wuf_predict_db.sql`](../backend/schema_wuf_predict_db.sql). Los archivos antiguos se conservan para trazabilidad y no deben ejecutarse sobre la base actual.
 
-Cambios del diseño v2:
+Cambios que se introdujeron en el diseño v2:
 
 - `ejecucion_recoleccion.fecha_captura` identifica la fecha representada por el CSV; `fecha_inicio` y `fecha_fin` registran cuándo se procesó. `semana` debe coincidir con la semana ISO de `fecha_captura`. La misma fecha/semana se copia al snapshot y el importer valida el nombre del archivo antes de crear la ejecución.
 - `snapshot_catalogo.etiqueta_adoptado` se conserva nullable por trazabilidad con el diccionario original, pero no se exige en el CSV ni es la etiqueta objetivo de HU02. HU02 deriva `permanece`, `salio_catalogo` o `indeterminada` a partir de los estados de snapshots sucesivos.
@@ -257,9 +257,9 @@ Cambios del diseño v2:
 - HU02 conserva también las filas `indeterminada` y su `motivo_indeterminado` en el dataset versionado y en el CSV de auditoría. HU03 debe filtrarlas al cargar los datos para entrenamiento; el archivo original no se modifica.
 - `dataset_historico` registra rango temporal, versión de regla, procedencia y hash opcional del CSV generado. Los datasets derivados del catálogo se marcan `derivada_catalogo`; esto no significa adopción verificada.
 
-### Extensión de persistencia para HU03
+### Extensión histórica de persistencia para HU03
 
-[`../backend/schema_wuf_predict_v2.sql`](../backend/schema_wuf_predict_v2.sql) ya contiene las estructuras HU03. Los esquemas v4, v5 y v6 integran progresivamente módulos posteriores; el esquema v6 incorpora HU06/OE3 sobre la versión limpia v5. Los scripts `upgrade_*.sql` se conservan solo para bases históricas que necesiten esa actualización.
+[`../backend/schema_wuf_predict_v2.sql`](../backend/schema_wuf_predict_v2.sql) contiene las estructuras que se agregaron para HU03 en esa etapa. Los esquemas v4, v5 y v6 integraron módulos posteriores, incluido HU06/OE3. La estructura activa y completa está en `schema_wuf_predict_db.sql`; los scripts `upgrade_*.sql` se conservan solo como registro de instalaciones históricas.
 
 | Campo | Propósito |
 |---|---|
@@ -275,7 +275,7 @@ El artefacto se guarda en `MODEL_ARTIFACT_DIR`, fuera de `frontend/public/`; el 
 
 ### Persistencia de evaluación HU04 y alertas HU07
 
-El esquema limpio v6 incluye `modelo_consistencia`, `evaluacion_consistencia`, `alerta_desactualizacion` y `alerta_atencion`. Las evaluaciones contienen una prioridad demo, indicadores JSONB y justificación; las alertas se crean solo para prioridad alta y mantienen los enlaces a su evaluación inicial y más reciente. Las notas y transiciones humanas se guardan como eventos auditables.
+El instalador final incluye `modelo_consistencia`, `evaluacion_consistencia`, `alerta_desactualizacion` y `alerta_atencion`. Las evaluaciones contienen una prioridad demo, indicadores JSONB y justificación; las alertas se crean solo para prioridad alta y mantienen los enlaces a su evaluación inicial y más reciente. Las notas y transiciones humanas se guardan como eventos auditables.
 
 | Tabla | Responsabilidad |
 |---|---|
@@ -286,19 +286,19 @@ El esquema limpio v6 incluye `modelo_consistencia`, `evaluacion_consistencia`, `
 
 El código actual registra las prioridades con la fuente `prioridad_revision_hu04_v2`. Las evaluaciones son prioridades demo; sus métricas no son exactitud frente a estados reales. HU07 es una bandeja interna, sin correo externo. Los días sin cambio observado se calculan desde el inicio de la secuencia continua disponible en los CSV y se almacenan en los indicadores JSON de la evaluación; no se añade una columna duplicada.
 
-### Regla funcional propuesta a partir del avance original
+### Regla funcional implementada para HU02
 
 Una captura CSV debe representar un catálogo completo y una ejecución completada. La regla alineada al prototipo asigna `permanece` si el estado final es `disponible`; asigna `salio_catalogo` si el estado final es `no_disponible` o si el perfil falta en una captura completa posterior. RF03 interpreta la salida como proxy de “adoptada”, pero no se confirma una adopción real. `sin_publicar`, capturas parciales, periodo sin captura posterior o evidencia incompleta producen `indeterminada`. La versión de la regla debe persistirse con el dataset.
 
 La UI del prototipo muestra semanas 6, 7 y 8 como contenido ilustrativo. En los CSV demo fechados 28-sep, 05-oct y 12-oct de 2026, el calendario ISO corresponde a semanas 40, 41 y 42. Se conservará la vista semanal, pero los datos funcionales mostrarán su semana calendario ISO, no copiarán los números estáticos del prototipo.
 
-### Instalación limpia para HU07
+### Esquema vigente y persistencia de OE3
 
-La base anterior `wuf_predict_v7` conserva el esquema limpio v5 y no se modifica. La base actual `wuf_predict_v9` usa el esquema v6 de PostgreSQL 16, con 22 tablas; la verificación de metadatos confirmó que el esquema instalado coincide con `schema_wuf_predict_v6.sql`. OE3 agrupa todos los perfiles disponibles y anota por separado los criterios HU06; no requirió cambios de esquema para este ajuste. Las versiones previas que agrupaban solo perfiles elegibles quedan identificadas como históricas por `modelo_segmentacion.parametros`.
+La base activa `wuf_predict_db` usa PostgreSQL 16 y el instalador final de 20 tablas. OE3 agrupa todas las mascotas disponibles con K-Means y registra por separado los criterios de perfil desfavorecido; las versiones previas del algoritmo que usaban otra cohorte se conservan como versiones históricas del modelo, no como esquemas de base de datos.
 
-## Actualizar una base ya creada
+## Migraciones históricas (no usar en la base activa)
 
-Si la base `wuf_predict` ya se creó con una versión anterior, **no vuelvas a ejecutar `schema.sql`**. Haz una copia de seguridad y aplica en orden las migraciones que falten: `upgrade_hu01.sql`, `upgrade_hu01_etiqueta.sql`, `upgrade_hu01_simulacion.sql` y finalmente [`../backend/upgrade_hu01_csv.sql`](../backend/upgrade_hu01_csv.sql). La última elimina ejecuciones sin snapshots asociados para limpiar intentos de prueba vacíos; conserva ejecuciones con historial, agrega referencia del archivo y procedencia de etiquetas/datasets, y cambia el origen predeterminado a CSV. La procedencia de etiquetas y datasets anteriores queda como `desconocida`.
+Las instrucciones de esta sección corresponden a instalaciones antiguas. La base activa `wuf_predict_db` ya usa `schema_wuf_predict_db.sql`; no ejecutes estas migraciones ni el instalador limpio sobre ella. Si se necesita reproducir una instalación histórica, identifica primero su esquema y respalda la base. La secuencia antigua comenzaba con: `upgrade_hu01.sql`, `upgrade_hu01_etiqueta.sql`, `upgrade_hu01_simulacion.sql` y finalmente [`../backend/upgrade_hu01_csv.sql`](../backend/upgrade_hu01_csv.sql). La última elimina ejecuciones sin snapshots asociados para limpiar intentos de prueba vacíos; conserva ejecuciones con historial, agrega referencia del archivo y procedencia de etiquetas/datasets, y cambia el origen predeterminado a CSV. La procedencia de etiquetas y datasets anteriores queda como `desconocida`.
 
 Las filas previas de `snapshot_catalogo` mantienen NULL en atributos históricos y `id_ejecucion` cuando no se pudieron reconstruir. La restricción `ck_snapshot_hu01_completo` conserva esa compatibilidad. HU01 crea primero una ejecución y luego guarda atributos, etiquetas de condición y procedencia de etiqueta en cada snapshot.
 
@@ -321,3 +321,9 @@ Estas restricciones no cambian columnas ni relaciones; rechazan valores que no s
 | snapshot_catalogo | `ck_snapshot_origen_etiqueta` | La etiqueta y su procedencia se guardan juntas |
 | snapshot_catalogo | `ck_snapshot_edad_meses_no_negativa`, `ck_snapshot_orden_publicacion_positivo` | Edad no negativa (o NULL) y orden positivo |
 | snapshot_catalogo (migración) | `ck_snapshot_hu01_completo` | Si el snapshot está asociado a ejecución, exige los atributos requeridos; se agrega `NOT VALID` para conservar filas antiguas |
+
+## Instalador limpio vigente
+
+La base activa es `wuf_predict_db`, creada con [`../backend/schema_wuf_predict_db.sql`](../backend/schema_wuf_predict_db.sql), que contiene 20 tablas. Para repetir una instalación desde cero, crea una base vacía y ejecuta el instalador una sola vez; no lo ejecutes sobre una base con datos.
+
+El instalador final excluye `adoptante` y `adopcion`: no hay funcionalidades backend que consulten o mantengan esas tablas y los CSV no incluyen adopciones reales. Añade `reporte_priorizacion.nombre_usuario_generador` y `alerta_atencion.nombre_usuario_actor` para conservar el nombre visible del responsable en el momento de la acción, aunque después cambie el nombre de su cuenta. Los demás instaladores y upgrades son antecedentes. Para una instalación nueva usa únicamente `schema_wuf_predict_db.sql` y crea después la cuenta de usuario por el procedimiento documentado.
