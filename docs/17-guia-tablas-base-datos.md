@@ -2,7 +2,7 @@
 
 ## Alcance
 
-Esta guía describe las **22 tablas** del instalador limpio [`../backend/schema_wuf_predict_v6.sql`](../backend/schema_wuf_predict_v6.sql), que integra HU01–HU07 y el agrupamiento K-Means de OE3 para PostgreSQL 16. La versión anterior de la aplicación usa `wuf_predict_v7`; para el código actual crea una base vacía `wuf_predict_v8` y ejecuta solo el esquema v6. El nombre v6 identifica el diseño SQL, no el nombre de la base.
+Esta guía describe las **22 tablas** del instalador limpio [`../backend/schema_wuf_predict_v6.sql`](../backend/schema_wuf_predict_v6.sql), que integra HU01–HU07 y el agrupamiento K-Means de OE3 para PostgreSQL 16. Verifiqué la base configurada actualmente: `wuf_predict_v9` contiene exactamente estas 22 tablas, sin faltantes ni tablas adicionales. El archivo v6 identifica el diseño SQL, no el nombre de la base.
 
 Una **PK** identifica una fila. Una **FK** conecta una fila con otra tabla y protege esa relación. Por ejemplo, un snapshot guarda el ID de la mascota y de la ejecución que lo produjo.
 
@@ -54,10 +54,10 @@ En el esquema v6, `reporte_priorizacion` también apunta a la ejecución y al mo
 | Tabla | ¿Para qué sirve? | Relaciones principales |
 |---|---|---|
 | `modelo_segmentacion` | Versiona un modelo K-Means, su K, captura de referencia, Silhouette, inertia, variables/parámetros, resumen de grupos y hash del artefacto. | Apunta a `ejecucion_recoleccion` y `usuario`; tiene muchas asignaciones de perfil. Solo una versión puede ser vigente. |
-| `asignacion_segmento` | Guarda el número de grupo asignado por un modelo a un `snapshot_catalogo` y los criterios HU06 que calificaban al perfil. | Cada asignación pertenece a un `modelo_segmentacion` y snapshot; la combinación modelo/snapshot es única. |
+| `asignacion_segmento` | Guarda el número de grupo asignado por un modelo a un `snapshot_catalogo` y los criterios HU06 observados; si no cumple ninguno, conserva una lista vacía. | Cada asignación pertenece a un `modelo_segmentacion` y snapshot; la combinación modelo/snapshot es única. |
 | `reporte_segmento_detalle` | Enlaza un reporte con las asignaciones OE3 exactas que incluyó. | Une `reporte_priorizacion` y `asignacion_segmento` para poder recuperar exportaciones históricas. |
 
-K-Means trabaja sobre los disponibles elegibles por los criterios HU06. No usa especie, identificadores, etiquetas de adopción ni predicciones OE1. Los grupos no son probabilidades ni clases con orden.
+K-Means trabaja sobre todos los perfiles disponibles. Después se guardan los criterios HU06 que cumple cada perfil; estos criterios no filtran la cohorte ni determinan el segmento. No usa especie, identificadores, etiquetas de adopción ni predicciones OE1. Los grupos no son probabilidades ni clases con orden. `parametros` identifica el alcance de cohorte para distinguir los modelos nuevos de versiones históricas.
 
 El catálogo y el reporte consultan las predicciones del modelo vigente ligadas a la última captura completa. El historial de informes recupera las filas guardadas para regenerar una descarga anterior.
 
@@ -130,4 +130,4 @@ Las tablas de unión —`dataset_snapshot` y `dataset_ejecucion`— resuelven re
 
 ## Qué no significa la presencia de una tabla
 
-El esquema incluye `adoptante` y `adopcion` por el modelo de dominio; los CSV actuales no aportan adopciones reales. Las alertas de HU07 se generan a partir de prioridades demo de HU04 y requieren confirmación humana. El instalador v6 debe ejecutarse solo en `wuf_predict_v8` vacía; no se usa como migración sobre `wuf_predict_v7`.
+El esquema incluye `adoptante` y `adopcion` por el modelo de dominio; los CSV actuales no aportan adopciones reales. Las alertas de HU07 se generan a partir de prioridades demo de HU04 y requieren confirmación humana. La base configurada actualmente (`wuf_predict_v9`) ya tiene instalado el esquema v6; no vuelvas a ejecutar el instalador sobre ella ni lo uses como migración.

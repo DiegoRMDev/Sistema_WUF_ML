@@ -73,7 +73,7 @@
         <div class="stat">
           <p class="label">OE3 · Perfiles desfavorecidos</p>
           <div class="row"><p class="value">88</p><p class="meta">de 115 disponibles</p></div>
-          <p class="trend">Grupos de perfiles elegibles por atributos · K-Means</p>
+          <p class="trend">Grupos de mascotas disponibles por atributos · K-Means</p>
         </div>
       </div>
       <div class="two">
@@ -269,18 +269,18 @@
       </div>
       </div>
       <div id="segmentationPanel" role="tabpanel" aria-labelledby="segmentationTab" hidden>
-        <p class="lead">Agrupa perfiles disponibles con características asociadas a perfiles desfavorecidos usando edad, tamaño, energía y condición especial.</p>
+        <p class="lead">Agrupa todas las mascotas disponibles por sus características; después muestra cuáles cumplen criterios de perfil desfavorecido.</p>
         <div class="card pad">
           <div class="card-head"><h2>Entrenar segmentación</h2></div>
           <div class="field segmentation-form-field"><label for="segmentationK">Cantidad de segmentos (K)</label>
             <select id="segmentationK"><option value="2" selected>2 segmentos</option><option value="3">3 segmentos</option><option value="4">4 segmentos</option><option value="5">5 segmentos</option></select>
           </div>
-          <p class="muted" id="segmentationOptionsSummary">Se usan los perfiles disponibles que cumplen al menos un criterio de inclusión. Silhouette resume qué tan separados quedan los grupos.</p>
-          <div class="toolbar"><button type="button" class="primary" id="trainSegmentationButton"><i data-lucide="network"></i>Entrenar K-Means</button></div>
+          <p class="muted segmentation-options-summary" id="segmentationOptionsSummary">K-Means agrupa todas las mascotas disponibles. Los criterios de edad avanzada, tamaño grande y condición especial sirven para describir cuántos perfiles con esos atributos hay en cada grupo.</p>
+          <div class="toolbar segmentation-train-toolbar"><button type="button" class="primary" id="trainSegmentationButton"><i data-lucide="network"></i>Entrenar K-Means</button></div>
         </div>
         <div class="card pad" id="segmentationCurrentCard">
           <div class="card-head"><h2 id="segmentationModelTitle">Segmentación vigente</h2><span class="tag neutral" id="segmentationModelStatus">Sin modelo</span></div>
-          <p class="muted" id="segmentationModelSummary">Entrena y activa una versión para ver los grupos de perfiles.</p>
+          <p class="muted" id="segmentationModelSummary">Entrena y activa una versión para agrupar el catálogo disponible.</p>
           <div class="segmentation-clusters" id="segmentationClusterSummaries"></div>
         </div>
         <div class="card pad segmentation-scatter-card" id="segmentationScatterCard" hidden>
@@ -360,7 +360,7 @@
         </div>
       </div>
       <div class="card pad report-segment-card" id="reportOe3Summary" hidden>
-        <div class="card-head"><h2>Segmentos de perfiles desfavorecidos</h2><span class="muted" id="reportOe3SummaryMeta"></span></div>
+        <div class="card-head"><h2>Segmentos del catálogo</h2><span class="muted" id="reportOe3SummaryMeta"></span></div>
         <p class="muted" id="reportOe3State"></p>
         <div class="segmentation-clusters" id="reportOe3Clusters"></div>
       </div>
@@ -372,9 +372,9 @@
         <span class="muted" id="reportOe3FilterCount" aria-live="polite"></span>
       </div>
       <div class="card report-table-card" id="reportOe3TableCard" hidden>
-        <div class="card-head"><h2>Perfiles desfavorecidos agrupados por segmento</h2><span class="muted" id="reportOe3Total"></span></div>
+        <div class="card-head"><h2>Mascotas disponibles agrupadas por segmento</h2><span class="muted" id="reportOe3Total"></span></div>
         <div class="tablewrap report-table-scroll">
-          <table><thead><tr><th>SKU</th><th>Nombre</th><th>Motivos de inclusión</th><th>Segmento</th><th>Resumen del segmento</th></tr></thead>
+          <table><thead><tr><th>SKU</th><th>Nombre</th><th>Atributos desfavorecidos</th><th>Segmento</th><th>Resumen del segmento</th></tr></thead>
             <tbody id="reportOe3Rows"><tr><td colspan="5" class="muted">Todavía no hay un modelo de segmentación aplicado.</td></tr></tbody>
           </table>
         </div>

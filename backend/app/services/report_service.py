@@ -64,7 +64,8 @@ class ReportService:
             "items": items,
             "oe3": {
                 "estado": oe3["estado"],
-                "total": oe3["cantidad_elegible"],
+                "total": oe3["cantidad_perfiles_disponibles"],
+                "total_desfavorecidos": oe3["cantidad_desfavorecida"],
                 "modelo_version": oe3["modelo"]["version"] if oe3["modelo"] else None,
                 "silhouette_score": float(oe3["modelo"]["silhouette_score"]) if oe3["modelo"] else None,
                 "segmentos": oe3_summaries,
@@ -90,6 +91,8 @@ class ReportService:
         summaries = oe3["modelo"]["resumen_clusters"] if oe3["modelo"] else []
         summary_by_id = {item["numero_segmento"]: item for item in summaries}
         report["oe3"] = {
+            "total": oe3["cantidad_perfiles_disponibles"],
+            "total_desfavorecidos": oe3["cantidad_desfavorecida"],
             "modelo_version": oe3["modelo"]["version"] if oe3["modelo"] else None,
             "silhouette_score": (
                 float(oe3["modelo"]["silhouette_score"])
@@ -142,7 +145,12 @@ class ReportService:
         }
         cluster_summaries = saved.get("resumen_clusters") or []
         summary_by_id = {item["numero_segmento"]: item for item in cluster_summaries}
+        saved_oe3_items = saved.get("oe3_items", [])
         report["oe3"] = {
+            "total": len(saved_oe3_items),
+            "total_desfavorecidos": sum(
+                bool(item.get("criterios_desfavorecidos")) for item in saved_oe3_items
+            ),
             "modelo_version": saved.get("segmentacion_version"),
             "silhouette_score": (
                 float(saved["segmentacion_silhouette"])
@@ -154,7 +162,7 @@ class ReportService:
                     "nombre", f"Segmento {item['numero_segmento']}"
                 ),
                 "segmento_resumen": summary_by_id.get(int(item["numero_segmento"]), {}),
-            } for item in saved.get("oe3_items", [])],
+            } for item in saved_oe3_items],
         }
         try:
             formato = str(saved["formato"]).casefold()

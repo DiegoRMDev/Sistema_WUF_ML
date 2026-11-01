@@ -20,20 +20,21 @@ from app.domain.disadvantaged_profiles import classify_profile
 NUMERIC_FEATURES = ["edad_meses", "edad_estimada", "tamano_estimado", "condicion_especial"]
 CATEGORICAL_FEATURES = ["tamano", "nivel_energia"]
 FEATURE_NAMES = [*NUMERIC_FEATURES, *CATEGORICAL_FEATURES]
+FULL_CATALOG_SCOPE = "all_available_v1"
 
 
 class ProfileClusteringError(ValueError):
     """Problema de datos o parámetros que impide crear segmentos útiles."""
 
 
+def annotate_profiles(profiles: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Etiqueta descriptivamente los criterios HU06 sin filtrar la cohorte de K-Means."""
+    return [classify_profile(profile) for profile in profiles]
+
+
 def select_disadvantaged_profiles(profiles: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Aplica los criterios actuales de HU06 y devuelve solo perfiles elegibles."""
-    eligible = []
-    for profile in profiles:
-        classified = classify_profile(profile)
-        if classified["es_desfavorecida"]:
-            eligible.append(classified)
-    return eligible
+    """Reproduce la cohorte de modelos históricos que solo agruparon perfiles elegibles."""
+    return [profile for profile in annotate_profiles(profiles) if profile["es_desfavorecida"]]
 
 
 def prepare_profile_features(profiles: list[dict[str, Any]]) -> pd.DataFrame:
@@ -97,10 +98,15 @@ def _cluster_summary(
             for item in members
             for criterion in item["criterios_desfavorecidos"]
         )
+        disadvantaged_profiles = sum(bool(item["criterios_desfavorecidos"]) for item in members)
         summaries.append({
             "numero_segmento": cluster_id + 1,
             "nombre": f"Segmento {cluster_id + 1}",
             "cantidad_perfiles": len(members),
+            "perfiles_con_atributos_desfavorecidos": disadvantaged_profiles,
+            "porcentaje_con_atributos_desfavorecidos": round(
+                disadvantaged_profiles / len(members) * 100, 1
+            ),
             "tamano_frecuente": sizes.most_common(1)[0][0],
             "energia_frecuente": energies.most_common(1)[0][0],
             "edad_mediana_meses": (
@@ -121,13 +127,15 @@ def train_profile_clusters(
     profiles: list[dict[str, Any]], *, cluster_count: int, seed: int, n_init: int,
 ) -> dict[str, Any]:
     """Silhouette describe la separación de grupos, no exactitud predictiva."""
-    eligible = select_disadvantaged_profiles(profiles)
+    # K-Means descubre grupos en todo el catálogo disponible. Los criterios solo
+    # describen después qué perfiles desfavorecidos hay dentro de cada grupo.
+    catalog_profiles = [dict(profile) for profile in profiles]
     if not 2 <= cluster_count <= 5:
         raise ProfileClusteringError("El número de segmentos debe estar entre 2 y 5.")
-    if len(eligible) < max(10, cluster_count * 3):
-        raise ProfileClusteringError("Se necesitan al menos 10 perfiles elegibles y 3 por segmento.")
+    if len(catalog_profiles) < max(10, cluster_count * 3):
+        raise ProfileClusteringError("Se necesitan al menos 10 perfiles disponibles y 3 por segmento.")
 
-    features = prepare_profile_features(eligible)
+    features = prepare_profile_features(catalog_profiles)
     distinct_rows = len(features.drop_duplicates())
     if distinct_rows < cluster_count:
         raise ProfileClusteringError("Hay menos perfiles distintos que segmentos solicitados.")
@@ -143,33 +151,49 @@ def train_profile_clusters(
     # Silhouette mide separación y cohesión interna; no requiere etiquetas objetivo.
     silhouette = float(silhouette_score(transformed, labels))
     # silhouette no está definida si todos los puntos caen en un solo grupo.
-    summaries = _cluster_summary(eligible, labels, cluster_count)
-    for profile, label in zip(eligible, labels, strict=True):
+    # Primero ajusta/asigna K-Means con atributos del perfil. Luego agrega las
+    # reglas HU06 únicamente para describir la composición de cada segmento.
+    annotated_profiles = annotate_profiles(catalog_profiles)
+    summaries = _cluster_summary(annotated_profiles, labels, cluster_count)
+    for profile, label in zip(annotated_profiles, labels, strict=True):
         profile["numero_segmento"] = label + 1
 
     return {
         "estimator": estimator,
-        "profiles": eligible,
+        "profiles": annotated_profiles,
         "labels": labels,
         "silhouette_score": silhouette,
         "inertia": float(estimator.named_steps["kmeans"].inertia_),
         "cluster_summaries": summaries,
         "feature_names": FEATURE_NAMES,
         "distinct_profiles": distinct_rows,
-        "parameters": {"n_clusters": cluster_count, "random_state": seed, "n_init": n_init},
+        "parameters": {
+            "n_clusters": cluster_count,
+            "random_state": seed,
+            "n_init": n_init,
+            "cohort_scope": FULL_CATALOG_SCOPE,
+        },
     }
 
 
 def project_profile_clusters(
     estimator: Pipeline,
     profiles: list[dict[str, Any]],
+    *,
+    cohort_scope: str = FULL_CATALOG_SCOPE,
 ) -> dict[str, Any]:
     """Proyecta perfiles a dos dimensiones para dibujar el resultado ya aprendido."""
-    eligible = select_disadvantaged_profiles(profiles)
-    if len(eligible) < 3:
+    # Las versiones viejas se conservan en modo consulta y muestran la cohorte
+    # con la que se entrenaron; los modelos nuevos proyectan todo el catálogo.
+    chart_profiles = (
+        select_disadvantaged_profiles(profiles)
+        if cohort_scope != FULL_CATALOG_SCOPE
+        else annotate_profiles(profiles)
+    )
+    if len(chart_profiles) < 3:
         raise ProfileClusteringError("No hay suficientes perfiles para mostrar el gráfico.")
 
-    features = prepare_profile_features(eligible)
+    features = prepare_profile_features(chart_profiles)
     # K-Means asigna los grupos en el espacio completo; PCA solo sirve para dibujarlos.
     transformed = estimator.named_steps["preparation"].transform(features)
     matrix = transformed.toarray() if hasattr(transformed, "toarray") else transformed
@@ -184,9 +208,13 @@ def project_profile_clusters(
                 "sku": str(profile.get("sku") or ""),
                 "nombre": str(profile.get("nombre") or ""),
                 "numero_segmento": int(label) + 1,
+                "atributos_desfavorecidos": [
+                    f"{item['nombre']}{' (est.)' if item.get('estimado') else ''}"
+                    for item in profile["criterios_desfavorecidos"]
+                ],
                 "x": float(point[0]),
                 "y": float(point[1]),
             }
-            for profile, label, point in zip(eligible, labels, coordinates, strict=True)
+            for profile, label, point in zip(chart_profiles, labels, coordinates, strict=True)
         ],
     }

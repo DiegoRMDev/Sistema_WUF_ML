@@ -1,6 +1,6 @@
 # HU01 — Recolección desde CSV
 
-> Esta guía conserva antecedentes de la evolución de HU01. La configuración actual usa `wuf_predict_v8` y los archivos de demostración de `data/capturas/escenario_hu02_variable_v4/`; para iniciar o reiniciar el entorno sigue [`11-inicio-local.md`](11-inicio-local.md). No apliques las migraciones históricas descritas aquí a la base actual.
+> Esta guía conserva antecedentes de la evolución de HU01. La configuración actual usa `wuf_predict_v9` y los archivos de demostración de `data/capturas/escenario_hu02_variable_v4/`; para iniciar o reiniciar el entorno sigue [`11-inicio-local.md`](11-inicio-local.md). No apliques las migraciones históricas descritas aquí a la base actual.
 
 ## Componentes
 

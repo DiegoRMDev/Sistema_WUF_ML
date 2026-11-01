@@ -245,7 +245,7 @@ El archivo `schema.sql` crea el modelo físico documentado y las extensiones de 
 
 ## Esquema v2 para HU02 y el prototipo
 
-Las bases anteriores `wuf_predict_v2` y `wuf_predict_v3` usaron revisiones previas del esquema para HU02. `wuf_predict_v6` corresponde al esquema v4 y `wuf_predict_v7` al instalador limpio v5. Para ejecutar el backend actual se debe crear una base nueva `wuf_predict_v8` con [`../backend/schema_wuf_predict_v6.sql`](../backend/schema_wuf_predict_v6.sql). Los esquemas antiguos se conservan como referencia; ninguno de estos instaladores se ejecuta sobre una base que ya tenga datos.
+Las bases anteriores `wuf_predict_v2` y `wuf_predict_v3` usaron revisiones previas del esquema para HU02. `wuf_predict_v6` corresponde al esquema v4 y `wuf_predict_v7` al instalador limpio v5. El backend actual está conectado a `wuf_predict_v9`, instalada con [`../backend/schema_wuf_predict_v6.sql`](../backend/schema_wuf_predict_v6.sql). Los esquemas antiguos se conservan como referencia; ninguno de estos instaladores se ejecuta sobre una base que ya tenga datos.
 
 Cambios del diseño v2:
 
@@ -294,7 +294,7 @@ La UI del prototipo muestra semanas 6, 7 y 8 como contenido ilustrativo. En los 
 
 ### Instalación limpia para HU07
 
-La base anterior `wuf_predict_v7` conserva el esquema limpio v5 y no debe recibir el instalador nuevo. Para usar HU06/OE3, crea una base vacía `wuf_predict_v8` en PostgreSQL 16, ejecuta [`../backend/schema_wuf_predict_v6.sql`](../backend/schema_wuf_predict_v6.sql) una sola vez y configura `DATABASE_URL` en `backend/.env` hacia esa base. El instalador v6 contiene 22 tablas, usa transacción y no elimina ni reemplaza bases anteriores. Reimporta los CSV y vuelve a crear las cuentas necesarias en la base nueva.
+La base anterior `wuf_predict_v7` conserva el esquema limpio v5 y no se modifica. La base actual `wuf_predict_v9` usa el esquema v6 de PostgreSQL 16, con 22 tablas; la verificación de metadatos confirmó que el esquema instalado coincide con `schema_wuf_predict_v6.sql`. OE3 agrupa todos los perfiles disponibles y anota por separado los criterios HU06; no requirió cambios de esquema para este ajuste. Las versiones previas que agrupaban solo perfiles elegibles quedan identificadas como históricas por `modelo_segmentacion.parametros`.
 
 ## Actualizar una base ya creada
 

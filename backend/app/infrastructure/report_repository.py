@@ -71,7 +71,7 @@ class ReportRepository:
 
         segment_model = self._session.execute(text("""
             SELECT id_modelo_segmentacion, version, cantidad_clusters, silhouette_score,
-                   resumen_clusters, es_vigente
+                   resumen_clusters, parametros, es_vigente
             FROM modelo_segmentacion WHERE es_vigente=TRUE LIMIT 1
         """)).mappings().first()
         disadvantaged_count = int(self._session.execute(text("""
@@ -82,7 +82,14 @@ class ReportRepository:
         """), {"run_id": run["id_ejecucion"]}).scalar_one())
         oe3_items: list[dict[str, Any]] = []
         oe3_state = "sin_modelo"
-        if segment_model is not None:
+        full_catalog_model = bool(
+            segment_model
+            and (segment_model["parametros"] or {}).get("cohort_scope") == "all_available_v1"
+        )
+        if segment_model is not None and not full_catalog_model:
+            # Conserva la versión previa en el historial, pero exige una nueva para el alcance actual.
+            oe3_state = "requiere_reentrenamiento"
+        elif full_catalog_model:
             assignments = self._session.execute(text("""
                 SELECT assignment.id_asignacion_segmento, assignment.id_snapshot,
                        assignment.numero_segmento, assignment.criterios_desfavorecidos,
@@ -101,7 +108,7 @@ class ReportRepository:
             """), {"model_id": segment_model["id_modelo_segmentacion"],
                    "run_id": run["id_ejecucion"]}).mappings().all()
             oe3_items = [dict(row) for row in assignments]
-            oe3_state = "listo" if len(oe3_items) == disadvantaged_count else "pendiente_actualizacion"
+            oe3_state = "listo" if len(oe3_items) == available_count else "pendiente_actualizacion"
 
         return {
             "estado": "listo",
@@ -111,8 +118,9 @@ class ReportRepository:
             "total": available_count,
             "oe3": {
                 "estado": oe3_state,
-                "cantidad_elegible": disadvantaged_count,
-                "modelo": dict(segment_model) if segment_model else None,
+                "cantidad_perfiles_disponibles": available_count,
+                "cantidad_desfavorecida": disadvantaged_count,
+                "modelo": dict(segment_model) if full_catalog_model else None,
                 "items": oe3_items,
             },
         }

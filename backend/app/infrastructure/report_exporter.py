@@ -24,7 +24,7 @@ OE1_HEADERS = [
     "SKU", "Nombre", "Especie", "Sexo", "Edad", "Tamaño", "Condición especial",
     "Orden de publicación", "Probabilidad estimada de adopción", "Prioridad",
 ]
-OE3_HEADERS = ["SKU", "Nombre", "Motivos de inclusión", "Segmento K-Means", "Resumen del segmento"]
+OE3_HEADERS = ["SKU", "Nombre", "Atributos desfavorecidos", "Segmento K-Means", "Resumen del segmento"]
 
 
 def _age(months: int | None, estimated: bool | None) -> str:
@@ -66,16 +66,24 @@ def _oe1_rows(items: list[dict[str, Any]], *, excel_safe: bool = False) -> list[
 def _criteria(item: dict[str, Any]) -> str:
     criteria = item.get("criterios_desfavorecidos") or []
     labels = [f"{value['nombre']}{' (est.)' if value.get('estimado') else ''}" for value in criteria]
-    return ", ".join(labels) if labels else "No identificado"
+    return ", ".join(labels) if labels else "Ninguno"
 
 
 def _cluster_description(item: dict[str, Any]) -> str:
     summary = item.get("segmento_resumen") or {}
     median_age = summary.get("edad_mediana_meses")
     age_text = f"edad mediana {median_age} meses" if median_age is not None else "edad no disponible"
+    disadvantaged = summary.get("perfiles_con_atributos_desfavorecidos")
+    total = summary.get("cantidad_perfiles")
+    share = summary.get("porcentaje_con_atributos_desfavorecidos")
+    criteria_text = (
+        f"{disadvantaged} de {total} con atributos desfavorecidos ({share} %)"
+        if disadvantaged is not None and total else ""
+    )
     return (
         f"Tamaño frecuente: {summary.get('tamano_frecuente', '—')}; "
         f"energía frecuente: {summary.get('energia_frecuente', '—')}; {age_text}"
+        f"{'; ' + criteria_text if criteria_text else ''}"
     )
 
 
@@ -126,7 +134,7 @@ def export_xlsx(report: dict[str, Any], generated_at: datetime) -> bytes:
     segment = report.get("oe3") or {}
     for sheet, title, model_text, total_columns in [
         (oe1, "OE1 · Priorización de difusión", f"Random Forest v{model['version']}", len(OE1_HEADERS)),
-        (oe3, "OE3 · Segmentación de perfiles desfavorecidos", f"K-Means {segment.get('modelo_version') or 'no aplicado'}", len(OE3_HEADERS)),
+        (oe3, "OE3 · Agrupación del catálogo", f"K-Means {segment.get('modelo_version') or 'no aplicado'}", len(OE3_HEADERS)),
     ]:
         sheet.append([title])
         sheet.merge_cells(start_row=1, start_column=1, end_row=1, end_column=total_columns)
@@ -157,7 +165,8 @@ def export_xlsx(report: dict[str, Any], generated_at: datetime) -> bytes:
 
     silhouette = segment.get("silhouette_score")
     oe3["A3"] = (
-        f"{len(segment.get('items', []))} perfiles asignados · silhouette: "
+        f"{len(segment.get('items', []))} perfiles agrupados · "
+        f"{segment.get('total_desfavorecidos', 0)} con atributos desfavorecidos · silhouette: "
         f"{float(silhouette):.3f}" if silhouette is not None
         else "No hay un modelo K-Means aplicado a esta captura."
     )
@@ -219,10 +228,11 @@ def export_pdf(report: dict[str, Any], generated_at: datetime) -> bytes:
     width = landscape(letter)[0] - 0.7 * inch
     oe1_ratios = [0.06, 0.09, 0.06, 0.05, 0.08, 0.06, 0.14, 0.08, 0.20, 0.08]
     story.append(_pdf_table(OE1_HEADERS, oe1, [width * value / sum(oe1_ratios) for value in oe1_ratios], cell))
-    story.extend([PageBreak(), Paragraph("OE3 · Segmentación de perfiles desfavorecidos", styles["Heading2"])])
+    story.extend([PageBreak(), Paragraph("OE3 · Mascotas agrupadas por segmento", styles["Heading2"])])
     story.append(Paragraph(
         f"K-Means {escape(str(segment.get('modelo_version') or 'no aplicado'))} · "
         f"{len(segment.get('items', []))} perfiles agrupados · "
+        f"{segment.get('total_desfavorecidos', 0)} con atributos desfavorecidos · "
         f"Silhouette {float(segment['silhouette_score']):.3f}" if segment.get("silhouette_score") is not None
         else "No hay un modelo K-Means aplicado a esta captura.", meta,
     ))

@@ -43,7 +43,7 @@ La tabla refleja navegación documentada en el PDF/prototipo; los permisos de op
 | HU03 | Analista entrena clasificador de adopción | Registra Accuracy, Precision, Recall, F1; publica solo si supera umbral | S2 |
 | HU04 | Área de Ayuda valida consistencia | Cada perfil tiene riesgo; lista casos altos con justificación | S2 |
 | HU05 | Marketing genera reporte semanal | Se genera semanalmente, ordenado por prioridad, exportable | S3 |
-| HU06 | Marketing consulta segmentos de perfiles desfavorecidos | K-Means agrupa los perfiles elegibles por edad, tamaño, condición especial y energía; se muestran los atributos del grupo, sin probabilidad de adopción | S3 |
+| HU06 | Marketing consulta segmentos de perfiles disponibles y reconoce perfiles desfavorecidos dentro de ellos | K-Means agrupa el catálogo disponible por edad, tamaño, condición especial y energía; las reglas HU06 describen qué perfiles cumplen atributos desfavorecidos, sin probabilidad de adopción | S3 |
 | HU07 | Área de Ayuda recibe alertas | Bandeja interna con mascota, días sin cambio observado y prioridad; permite registrar atención | S3 |
 | HU08 | Marketing consulta KPI | Tres KPI con meta/evolución y actualización por ejecución | S4 |
 | HU09 | Scrum Master documenta y entrega sistema | Manual técnico, manual de usuario y registro de pruebas con resultados | S4 |
@@ -63,7 +63,7 @@ Los sprints son de tres semanas, salvo S4 de cuatro semanas; el plan abarca sema
 | RF07 | Evaluar riesgo de estado publicado obsoleto mediante árbol | HU04 | Alta |
 | RF08 | Notificar dentro del sistema los perfiles de alta prioridad al Área de Ayuda | HU07 | Media |
 | RF09 | Producir reporte semanal ordenado, exportable a PDF o Excel | HU05 | Media |
-| RF10 | Aplicar K-Means a perfiles elegibles según edad, tamaño, condición especial y energía; conservar los criterios HU06 y excluir especie e identificadores del modelo | HU06 | Media |
+| RF10 | Agrupar con K-Means todos los perfiles disponibles según edad, tamaño, condición especial y energía; identificar dentro de cada segmento los perfiles que cumplen criterios HU06; excluir especie e identificadores del modelo | HU06 | Media |
 | RF11 | Mostrar KPI OE1-OE3, meta y evolución | HU08 | Media |
 | RF12 | Autenticar usuarios y restringir funciones según rol | HU08, HU09 | Baja |
 

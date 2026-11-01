@@ -662,7 +662,7 @@ async function loadSegmentationModels() {
       clusterSelect.value = String(Math.min(...permittedClusters));
     }
     $("segmentationOptionsSummary").textContent = capture
-      ? `Captura semana ${capture.semana} · ${options.perfiles_disponibles} disponibles · ${options.perfiles_elegibles} elegibles para el análisis. Variables: edad, tamaño, energía y condición especial.`
+      ? `Captura semana ${capture.semana} · ${options.perfiles_disponibles} mascotas disponibles; ${options.perfiles_con_criterios} cumplen uno o más criterios de perfil desfavorecido. K-Means agrupa todas. Variables: edad, tamaño, energía y condición especial.`
       : "Importa una captura completa antes de entrenar K-Means.";
     $("trainSegmentationButton").disabled = options.estado !== "listo";
     renderSegmentationModels(page.items || []);
@@ -674,8 +674,10 @@ async function loadSegmentationModels() {
 }
 
 function renderSegmentationModels(models) {
-  const active = models.find((model) => model.es_vigente);
-  const selected = models.find((model) => model.id_modelo_segmentacion === selectedSegmentationModelId) || active;
+  const storedActive = models.find((model) => model.es_vigente);
+  const active = models.find((model) => model.es_vigente && model.compatible_enfoque);
+  const selected = models.find((model) => model.id_modelo_segmentacion === selectedSegmentationModelId)
+    || active || storedActive;
   const title = $("segmentationModelTitle");
   const status = $("segmentationModelStatus");
   const summary = $("segmentationModelSummary");
@@ -685,13 +687,19 @@ function renderSegmentationModels(models) {
     title.textContent = "Segmentación vigente";
     status.textContent = "Sin modelo";
     status.className = "tag neutral";
-    summary.textContent = "Entrena una versión K-Means para descubrir grupos dentro de los perfiles desfavorecidos.";
+    summary.textContent = "Entrena una versión K-Means para agrupar todas las mascotas disponibles.";
   } else {
     const isActive = Boolean(selected.es_vigente);
     title.textContent = `${isActive ? "Segmentación vigente" : "Detalle de versión"} · K-Means ${selected.version}`;
-    status.textContent = isActive ? "Vigente" : selected.estado === "candidato" ? "Pendiente de activar" : "Anterior";
-    status.className = `tag ${isActive ? "success" : "neutral"}`;
-    summary.textContent = `${selected.cantidad_perfiles} perfiles · ${selected.cantidad_clusters} segmentos · silhouette ${Number(selected.silhouette_score).toFixed(3)} · captura semana ${selected.semana_referencia} · ${formatReportDate(selected.fecha_entrenamiento)}.`;
+    const isCompatible = Boolean(selected.compatible_enfoque);
+    status.textContent = isActive && !isCompatible
+      ? "Requiere reentrenamiento"
+      : isCompatible && isActive ? "Vigente"
+        : isCompatible && selected.estado === "candidato" ? "Pendiente de activar"
+          : isCompatible ? "Anterior" : "Método anterior";
+    // Reutiliza el color de estado activo que ya emplean los otros modelos.
+    status.className = `tag ${isActive && isCompatible ? "alta" : "neutral"}`;
+    summary.textContent = `${selected.cantidad_perfiles} perfiles · ${selected.cantidad_clusters} segmentos · silhouette ${Number(selected.silhouette_score).toFixed(3)} · captura semana ${selected.semana_referencia} · ${formatReportDate(selected.fecha_entrenamiento)}.${isCompatible ? "" : " Esta versión agrupó solo perfiles que cumplían criterios; entrena una nueva versión para cubrir todo el catálogo."}`;
     (selected.resumen_clusters || []).forEach((cluster) => {
       const card = document.createElement("div");
       card.className = "segmentation-cluster-card";
@@ -699,7 +707,10 @@ function renderSegmentationModels(models) {
       heading.textContent = `${cluster.nombre}: ${cluster.cantidad_perfiles} perfiles`;
       const details = document.createElement("span");
       const age = cluster.edad_mediana_meses === null ? "edad mediana no disponible" : `edad mediana ${cluster.edad_mediana_meses} meses`;
-      details.textContent = `Tamaño frecuente: ${cluster.tamano_frecuente} · Energía frecuente: ${cluster.energia_frecuente} · ${age} · edades estimadas: ${cluster.edades_estimadas} · edades no indicadas: ${cluster.edades_no_indicadas}`;
+      const concentration = cluster.perfiles_con_atributos_desfavorecidos === undefined
+        ? ""
+        : ` · Con atributos desfavorecidos: ${cluster.perfiles_con_atributos_desfavorecidos} de ${cluster.cantidad_perfiles} (${Number(cluster.porcentaje_con_atributos_desfavorecidos).toFixed(1)} %)`;
+      details.textContent = `Tamaño frecuente: ${cluster.tamano_frecuente} · Energía frecuente: ${cluster.energia_frecuente} · ${age} · edades estimadas: ${cluster.edades_estimadas} · edades no indicadas: ${cluster.edades_no_indicadas}${concentration}`;
       card.append(heading, details);
       cards.append(card);
     });
@@ -725,28 +736,34 @@ function renderSegmentationModels(models) {
     appendTextCell(row, String(model.cantidad_perfiles), "num");
     appendTextCell(row, String(model.cantidad_clusters), "num");
     appendTextCell(row, Number(model.silhouette_score).toFixed(3), "num");
-    appendTextCell(row, model.es_vigente ? "Vigente" : model.estado === "candidato" ? "Pendiente de activar" : "Anterior");
+    appendTextCell(row, model.es_vigente && !model.compatible_enfoque
+      ? "Requiere reentrenamiento"
+      : !model.compatible_enfoque ? "Método anterior"
+        : model.es_vigente ? "Vigente" : model.estado === "candidato" ? "Pendiente de activar" : "Anterior");
     const action = document.createElement("td");
+    const actionGroup = document.createElement("div");
+    actionGroup.className = "segmentation-actions";
     const view = document.createElement("button");
     view.type = "button";
     view.dataset.segmentationView = String(model.id_modelo_segmentacion);
     view.textContent = "Ver";
-    action.append(view);
-    if (model.estado === "candidato") {
+    actionGroup.append(view);
+    if (model.estado === "candidato" && model.compatible_enfoque) {
       const activate = document.createElement("button");
       activate.type = "button";
       activate.className = "primary";
       activate.dataset.segmentationActivate = String(model.id_modelo_segmentacion);
       activate.textContent = "Activar";
-      action.append(activate);
+      actionGroup.append(activate);
     }
-    if (model.es_vigente) {
+    if (model.es_vigente && model.compatible_enfoque) {
       const refresh = document.createElement("button");
       refresh.type = "button";
       refresh.dataset.segmentationRefresh = "true";
       refresh.textContent = "Actualizar captura";
-      action.append(refresh);
+      actionGroup.append(refresh);
     }
+    action.append(actionGroup);
     row.append(action);
     body.append(row);
   });
@@ -852,10 +869,10 @@ function renderSegmentationScatter(plot) {
       class: `segmentation-scatter-point cluster-${cluster}`,
       "data-point-cluster": cluster,
       tabindex: "0",
-      "aria-label": `${point.sku} ${point.nombre}, segmento ${cluster}, PC1 ${tickValue(point.x)}, PC2 ${tickValue(point.y)}`,
+      "aria-label": `${point.sku} ${point.nombre}, segmento ${cluster}, atributos desfavorecidos: ${(point.atributos_desfavorecidos || []).join(", ") || "ninguno"}, PC1 ${tickValue(point.x)}, PC2 ${tickValue(point.y)}`,
     });
     const tooltip = makeSvgElement("title");
-    tooltip.textContent = `${point.sku} · ${point.nombre} · Segmento ${cluster} · PC1 ${tickValue(point.x)} · PC2 ${tickValue(point.y)}`;
+    tooltip.textContent = `${point.sku} · ${point.nombre} · Segmento ${cluster} · Atributos desfavorecidos: ${(point.atributos_desfavorecidos || []).join(", ") || "ninguno"} · PC1 ${tickValue(point.x)} · PC2 ${tickValue(point.y)}`;
     circle.append(tooltip);
     svg.append(circle);
   });
@@ -899,7 +916,7 @@ async function trainSegmentationModel() {
     });
     selectedSegmentationModelId = candidate.id_modelo_segmentacion;
     await loadSegmentationModels();
-    setNotice("segmentationMessage", `K-Means ${candidate.version} listo. Silhouette ${Number(candidate.silhouette_score).toFixed(3)}; revísalo y actívalo si los grupos te resultan útiles.`, "success");
+    setNotice("segmentationMessage", `K-Means ${candidate.version} agrupó ${candidate.cantidad_perfiles} mascotas disponibles. Silhouette ${Number(candidate.silhouette_score).toFixed(3)}; revisa los grupos y actívalo si te resultan útiles.`, "success");
   } catch (cause) {
     setNotice("segmentationMessage", cause.message, "error");
   } finally {
@@ -914,7 +931,7 @@ async function activateSegmentationModel(modelId, button) {
     const result = await api(`/segmentation/models/${encodeURIComponent(modelId)}/activate`, { method: "POST" });
     selectedSegmentationModelId = result.id_modelo_segmentacion;
     await loadSegmentationModels();
-    setNotice("segmentationMessage", `Segmentación ${result.version} activada para ${result.asignaciones_actualizadas} perfiles de la semana ${result.semana_aplicada}.`, "success");
+    setNotice("segmentationMessage", `Segmentación ${result.version} activada para ${result.asignaciones_actualizadas} mascotas disponibles de la semana ${result.semana_aplicada}.`, "success");
   } catch (cause) {
     setNotice("segmentationMessage", cause.message, "error");
   } finally {
@@ -1843,11 +1860,12 @@ function renderOe3Report(oe3) {
   const items = oe3.items || [];
   $("reportOe3Summary").hidden = false;
   $("reportOe3SummaryMeta").textContent = oe3.modelo_version
-    ? `K-Means ${oe3.modelo_version} · ${Number(oe3.total) || 0} perfiles elegibles`
-    : `${Number(oe3.total) || 0} perfiles elegibles`;
+    ? `K-Means ${oe3.modelo_version} · ${Number(oe3.total) || 0} mascotas disponibles · ${Number(oe3.total_desfavorecidos) || 0} con atributos desfavorecidos`
+    : `${Number(oe3.total) || 0} mascotas disponibles · ${Number(oe3.total_desfavorecidos) || 0} con atributos desfavorecidos`;
   const messages = {
-    sin_capturas: "Importa una captura completa para listar los perfiles elegibles de OE3.",
-    sin_modelo: "Entrena y activa K-Means desde la sección de entrenamiento para ver los segmentos.",
+    sin_capturas: "Importa una captura completa para agrupar las mascotas disponibles.",
+    sin_modelo: "Entrena y activa K-Means desde Entrenamiento para agrupar el catálogo.",
+    requiere_reentrenamiento: "El modelo activo es de la versión anterior del análisis. Entrena y activa un modelo nuevo para agrupar todo el catálogo.",
     pendiente_actualizacion: "La captura cambió. El Analista debe actualizar los segmentos antes de incluirlos en un reporte.",
   };
   $("reportOe3State").textContent = messages[oe3.estado]
@@ -1863,13 +1881,16 @@ function renderOe3Report(oe3) {
     title.textContent = `${summary.nombre}: ${summary.cantidad_perfiles} perfiles`;
     const detail = document.createElement("span");
     const age = summary.edad_mediana_meses === null ? "edad no indicada" : `edad mediana ${summary.edad_mediana_meses} meses`;
-    detail.textContent = `Tamaño frecuente: ${summary.tamano_frecuente} · Energía frecuente: ${summary.energia_frecuente} · ${age}`;
+    const concentration = summary.perfiles_con_atributos_desfavorecidos === undefined
+      ? ""
+      : ` · ${summary.perfiles_con_atributos_desfavorecidos} de ${summary.cantidad_perfiles} con atributos desfavorecidos (${Number(summary.porcentaje_con_atributos_desfavorecidos).toFixed(1)} %)`;
+    detail.textContent = `Tamaño frecuente: ${summary.tamano_frecuente} · Energía frecuente: ${summary.energia_frecuente} · ${age}${concentration}`;
     card.append(title, detail);
     summaryHost.append(card);
   });
   $("reportOe3TableCard").hidden = false;
   $("reportOe3Toolbar").hidden = items.length === 0;
-  $("reportOe3Total").textContent = `${items.length} perfiles`;
+  $("reportOe3Total").textContent = `${items.length} mascotas disponibles`;
   const select = $("reportOe3Filter");
   select.replaceChildren(new Option("Todos", ""));
   summaries.forEach((summary) => select.add(new Option(summary.nombre, String(summary.numero_segmento))));
@@ -1882,6 +1903,8 @@ function renderOe3Rows(items, state = "") {
   if (!items.length) {
     const message = state === "sin_capturas"
       ? "Todavía no hay capturas completas para listar perfiles."
+      : state === "requiere_reentrenamiento"
+      ? "El modelo vigente usa el enfoque anterior. Entrena y activa uno nuevo para agrupar todo el catálogo."
       : state === "pendiente_actualizacion"
       ? "No hay asignaciones para la última captura. Actualiza K-Means desde Entrenamiento."
       : "Todavía no hay una segmentación OE3 aplicada a esta captura.";
@@ -1897,11 +1920,14 @@ function renderOe3Rows(items, state = "") {
     const criteria = (profile.criterios_desfavorecidos || []).map((item) => `${item.nombre}${item.estimado ? " (est.)" : ""}`);
     appendTextCell(row, profile.sku);
     appendTextCell(row, profile.nombre);
-    appendTextCell(row, criteria.join(" · ") || "No identificado", "wrap");
+    appendTextCell(row, criteria.join(" · ") || "Ninguno", "wrap");
     appendTextCell(row, profile.segmento_nombre);
     const summary = profile.segmento_resumen || {};
     const age = summary.edad_mediana_meses === null ? "edad no indicada" : `mediana ${summary.edad_mediana_meses} meses`;
-    appendTextCell(row, `Tamaño ${summary.tamano_frecuente || "—"} · energía ${summary.energia_frecuente || "—"} · ${age}`, "wrap");
+    const concentration = summary.perfiles_con_atributos_desfavorecidos === undefined
+      ? ""
+      : ` · ${summary.perfiles_con_atributos_desfavorecidos}/${summary.cantidad_perfiles} (${Number(summary.porcentaje_con_atributos_desfavorecidos).toFixed(1)} %) con atributos desfavorecidos`;
+    appendTextCell(row, `Tamaño ${summary.tamano_frecuente || "—"} · energía ${summary.energia_frecuente || "—"} · ${age}${concentration}`, "wrap");
     body.append(row);
   });
   applyOe3Filters();

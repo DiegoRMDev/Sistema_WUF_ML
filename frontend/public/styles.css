@@ -127,6 +127,9 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;}
 #view-reporte .report-segment-counts{display:flex;flex-wrap:wrap;gap:10px 22px;font-size:13px;}
 #view-reporte .report-segment-counts strong{color:var(--ink);}
 .segmentation-form-field{max-width:320px;margin:12px 0 18px;}
+.segmentation-options-summary{max-width:900px;margin:14px 0 0;line-height:1.55;}
+.segmentation-train-toolbar{margin:32px 0 0;}
+.segmentation-actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px;min-width:190px;}
 .segmentation-clusters{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin-top:14px;}
 .segmentation-cluster-card{display:flex;flex-direction:column;gap:8px;padding:14px;border:1px solid var(--border);border-radius:10px;background:var(--surface-2);}
 .segmentation-cluster-card strong{color:var(--ink);}

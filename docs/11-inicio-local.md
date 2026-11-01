@@ -1,6 +1,6 @@
 # Guía para iniciar WUF Predict en Windows
 
-Esta guía explica cómo configurar y ejecutar la versión actual del proyecto en Windows con PowerShell, PostgreSQL 16, la base nueva `wuf_predict_v8` e importaciones manuales de CSV. Incluye HU06 con K-Means para los segmentos OE3.
+Esta guía explica cómo configurar y ejecutar la versión actual del proyecto en Windows con PowerShell, PostgreSQL 16, la base `wuf_predict_v9` e importaciones manuales de CSV. Incluye HU06 con K-Means para los segmentos OE3.
 
 ## Requisitos
 
@@ -13,14 +13,13 @@ Las dependencias gratuitas y abiertas del backend están declaradas en `backend/
 
 ## 1. Preparar PostgreSQL 16
 
-La base anterior `wuf_predict_v7` se conserva sin cambios. Crea **`wuf_predict_v8`** y ejecuta [`../backend/schema_wuf_predict_v6.sql`](../backend/schema_wuf_predict_v6.sql), que instala el esquema limpio integrado para HU01–HU07 y la segmentación K-Means de HU06.
+La base conectada actualmente es **`wuf_predict_v9`** y ya tiene instalado [`../backend/schema_wuf_predict_v6.sql`](../backend/schema_wuf_predict_v6.sql), que integra HU01–HU07 y K-Means para OE3. `wuf_predict_v7` se conserva como base histórica.
 
-1. Conserva `wuf_predict_v7`; crea una base nueva `wuf_predict_v8` con codificación UTF8.
-2. Abre Query Tool conectado específicamente a la base nueva.
-3. Ejecuta `backend/schema_wuf_predict_v6.sql` una sola vez.
-4. No ejecutes el instalador sobre `wuf_predict_v7` ni apliques scripts `upgrade_*.sql` a la base nueva.
+- Si continúas en este equipo, no vuelvas a ejecutar el instalador SQL: configura `DATABASE_URL` para usar `wuf_predict_v9`.
+- Para preparar otra instalación desde cero, crea una base vacía y ejecuta allí `backend/schema_wuf_predict_v6.sql` una sola vez. Luego configura `DATABASE_URL`, crea el usuario Analista e importa los CSV demo.
+- No ejecutes el instalador sobre una base con datos ni sobre la histórica `wuf_predict_v7`; tampoco apliques scripts `upgrade_*.sql` a la base limpia.
 
-La configuración `DATABASE_URL` de `backend/.env` debe apuntar a `wuf_predict_v8`. Los CSV actuales se vuelven a importar manualmente en esa base nueva.
+Los CSV se importan manualmente desde la interfaz en la base a la que apunta `DATABASE_URL`.
 
 ## 2. Crear el entorno e instalar dependencias
 
@@ -76,7 +75,7 @@ Copy-Item .env.example .env
 Abre `backend/.env` y confirma estos valores. Reemplaza el usuario y la contraseña por las credenciales reales de PostgreSQL:
 
 ```dotenv
-DATABASE_URL=postgresql+psycopg://USUARIO:CLAVE@localhost:5432/wuf_predict_v8
+DATABASE_URL=postgresql+psycopg://USUARIO:CLAVE@localhost:5432/wuf_predict_v9
 JWT_SECRET=REEMPLAZAR_POR_UN_SECRETO_ALEATORIO_DE_AL_MENOS_32_CARACTERES
 ```
 
@@ -182,9 +181,9 @@ En los siguientes inicios no recrees la base, el entorno virtual, los usuarios n
 ## Solución de problemas
 
 - **No se activa `.venv`:** aplica `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass` en esa ventana y vuelve a activar el entorno.
-- **La API no conecta a PostgreSQL:** confirma que PostgreSQL 16 esté en ejecución, que `wuf_predict_v8` exista y que `DATABASE_URL` tenga las credenciales correctas.
+- **La API no conecta a PostgreSQL:** confirma que PostgreSQL 16 esté en ejecución, que `wuf_predict_v9` exista y que `DATABASE_URL` tenga las credenciales correctas.
 - **La API indica que faltan dependencias:** activa `.venv`, ejecuta `python -m pip install -e .` y reinicia Uvicorn.
-- **El login falla:** confirma que el usuario fue creado en `wuf_predict_v8` y que `config.js` apunta a la API local.
+- **El login falla:** confirma que el usuario fue creado en `wuf_predict_v9` y que `config.js` apunta a la API local.
 - **Error CORS:** el origen abierto en el navegador debe estar listado en `CORS_ORIGINS`, por ejemplo `http://127.0.0.1:5500`; no agregues `/api/v1` a ese valor.
 - **La importación CSV falla o es parcial:** revisa el mensaje de incidencias y el contrato de [`../data/capturas/README.md`](../data/capturas/README.md). El sistema usa la importación manual y no consulta WUF.
 
